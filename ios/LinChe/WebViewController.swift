@@ -102,6 +102,30 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                     reportLayout();
                     new MutationObserver(reportLayout).observe(document.documentElement, {attributes: true, attributeFilter: ['class']});
                     new MutationObserver(reportLayout).observe(document.body, {childList: true, subtree: true});
+                    // Keyboard notifications do not fire when a multiline draft
+                    // grows. Track the actual editor/tray height throughout Chat.
+                    let observedComposer;
+                    const refreshComposerHeight = () => {
+                        if (!observedComposer?.isConnected) return;
+                        const root = document.documentElement;
+                        const height = observedComposer.getBoundingClientRect().height + 'px';
+                        if (root.style.getPropertyValue('--linche-composer-height') === height) return;
+                        const messages = document.querySelector('.chat-page .messages-area');
+                        const previousScroll = messages?.scrollTop || 0;
+                        const follow = messages && messages.scrollHeight - previousScroll - messages.clientHeight < 96;
+                        root.style.setProperty('--linche-composer-height', height);
+                        if (messages) messages.scrollTop = follow ? messages.scrollHeight : previousScroll;
+                    };
+                    const composerResize = new ResizeObserver(refreshComposerHeight);
+                    const observeComposer = () => {
+                        const next = document.querySelector('.chat-page .chat-composer');
+                        if (next === observedComposer) return;
+                        composerResize.disconnect();
+                        observedComposer = next;
+                        if (next) { composerResize.observe(next); refreshComposerHeight(); }
+                    };
+                    observeComposer();
+                    new MutationObserver(observeComposer).observe(document.body, {childList: true, subtree: true});
                 }
                 // React creates/replaces the header after document load and on
                 // route changes. Keep a single decorative layer per header.
@@ -212,7 +236,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                     distance = Math.max(0, contentEnd + fromPadding - messageArea.clientHeight - messageArea.scrollTop);
                     followLatest = distance < 96;
                 }
-                const targetBottom = \(height - contentHeight) > 0 ? 10 : Math.max(10, \(Int(view.safeAreaInsets.bottom.rounded())));
+                const targetBottom = Math.max(10, \(Int(view.safeAreaInsets.bottom.rounded())));
                 root.style.setProperty('--linche-safe-top', '\(top)px');
                 root.style.setProperty('--linche-background-height', '\(height)px');
                 if (composerHeight) root.style.setProperty('--linche-composer-height', composerHeight + 'px');
@@ -222,11 +246,6 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                 root.style.setProperty('--linche-content-height', '\(contentHeight)px');
                 root.style.setProperty('--linche-keyboard-height', '\(height - contentHeight)px');
                 root.style.setProperty('--linche-composer-bottom', targetBottom + 'px');
-                if (glass && \(height - contentHeight) > 0) {
-                    root.style.setProperty('--linche-message-padding', ((composerHeight || 52) + targetBottom + 16) + 'px');
-                } else {
-                    root.style.removeProperty('--linche-message-padding');
-                }
                 if (messageArea && followLatest) {
                     const padding = parseFloat(getComputedStyle(messageArea).paddingBottom) || 0;
                     messageArea.scrollTop = Math.max(0, (glass ? contentEnd + padding : messageArea.scrollHeight) - messageArea.clientHeight - distance);

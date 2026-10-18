@@ -134,7 +134,8 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         let top = max(0, scaled(header).maxY)
         let bottom = max(top, scaled(composer).minY - 8)
         table.frame = CGRect(x: 0, y: top, width: bounds.width, height: bottom - top)
-        table.contentInset.bottom = body["keyboard"] as? Bool == true ? 10 : 36
+        // Keep the resting message clearance when the keyboard opens or the editor grows.
+        table.contentInset.bottom = 36
         if oldWidth != table.bounds.width { heights.removeAll(); table.reloadData() }
         inputGlass.frame = scaled(input)
         if inputGlass.effect == nil { inputGlass.effect = UIGlassEffect(style: .regular) }
@@ -144,6 +145,7 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         latestGlass.frame = CGRect(x: scaled(composer).maxX - 46, y: bottom - 34, width: 34, height: 34)
         latestButton.frame = latestGlass.bounds
         if follow && !firstLayout && oldFrame != table.frame && !table.isDragging && !table.isDecelerating {
+            table.layoutIfNeeded()
             scrollToBottom(animated: false)
         }
         changingLayout = false

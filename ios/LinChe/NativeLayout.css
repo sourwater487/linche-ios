@@ -129,18 +129,23 @@ html[data-linche-client="ios"] .diary-dialog {
   padding-bottom: var(--linche-keyboard-height, 0px);
 }
 
-/* Use compact clearance only while typing; the resting theme keeps its
-   original whitespace. Native keyboard geometry is applied without animation. */
+/* Preserve the resting clearance while typing. The live composer height also
+   reserves space for a multiline draft or attachment tray in the web fallback. */
 html[data-linche-client="ios"][data-visual-theme="liquid-glass"] .chat-page .chat-composer {
   bottom: var(--linche-composer-bottom, max(10px, env(safe-area-inset-bottom)));
 }
 html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page .messages-area {
-  padding-bottom: var(--linche-message-padding, calc(176px + env(safe-area-inset-bottom)));
+  padding-bottom: calc(var(--linche-composer-height, 50px) + 126px + env(safe-area-inset-bottom));
   overflow-anchor: none;
 }
 
 @media (max-width: 767px) {
   html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page .messages-area {
-    padding-bottom: var(--linche-message-padding, calc(158px + env(safe-area-inset-bottom)));
+    padding-bottom: calc(var(--linche-composer-height, 50px) + 108px + env(safe-area-inset-bottom));
   }
+}
+
+/* The app editor follows the same typography token as its message bubbles. */
+html[data-linche-client="ios"] .chat-page .chat-input-row textarea {
+  font-size: var(--chat-message-font-size, 14px);
 }
