@@ -1,5 +1,6 @@
 import UIKit
 import ImageIO
+import CoreText
 
 struct NativeChatRun: Decodable, Equatable {
     let text: String
@@ -27,6 +28,7 @@ struct NativeChatBox: Decodable, Equatable {
 }
 struct NativeChatNode: Decodable, Equatable {
     let box: NativeChatBox?
+    let footerText: Bool?
     let anchorKeys: [String]?
     let anchor: String?
     let spaceBefore: Double?
@@ -63,6 +65,33 @@ struct NativeChatRow: Decodable, Equatable {
     let centered: Bool?
     let inset: Double?
     let spacing: Double?
+}
+
+/// Footer metadata is a single line. Center its visible glyphs in the same
+/// 24pt row as the SVG controls, independently of the font's ascent/descent.
+private final class NativeFooterText: UIView {
+    let line: CTLine
+    init(text: NSAttributedString, width: CGFloat) {
+        line = CTLineCreateWithAttributedString(text as CFAttributedString)
+        super.init(frame: CGRect(x: 0, y: 0, width: width, height: 24))
+        backgroundColor = .clear
+        isOpaque = false
+        isAccessibilityElement = true
+        accessibilityLabel = text.string
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func draw(_ rect: CGRect) {
+        guard let context = UIGraphicsGetCurrentContext() else { return }
+        let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+        guard !ink.isNull else { return }
+        context.saveGState()
+        context.textMatrix = .identity
+        context.translateBy(x: max(0, -ink.minX), y: bounds.midY + ink.midY)
+        context.scaleBy(x: 1, y: -1)
+        context.textPosition = .zero
+        CTLineDraw(line, context)
+        context.restoreGState()
+    }
 }
 
 private final class NativeReactionTap: UITapGestureRecognizer {
@@ -351,7 +380,7 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
             for run in node.runs ?? [] {
                 let size = CGFloat(max(10, min(64, run.size ?? 14)))
                 let font = run.mono == true ? UIFont.monospacedSystemFont(ofSize: size, weight: run.bold == true ? .semibold : .regular)
-                    : NativeTypography.font(size: size, bold: run.bold == true)
+                    : NativeTypography.font(size: size, bold: run.bold == true, italic: run.italic == true)
                 var color = UIColor.label
                 if let c = run.color, c.count >= 3 {
                     color = UIColor(red: c[0] / 255, green: c[1] / 255, blue: c[2] / 255, alpha: c.count > 3 ? c[3] : 1)
@@ -360,10 +389,13 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
                 paragraph.lineSpacing = max(0, CGFloat(run.lineHeight ?? Double(font.lineHeight + 4)) - font.lineHeight)
                 paragraph.alignment = node.align == "center" ? .center : ["right", "end"].contains(node.align ?? "") ? .right : .left
                 var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: paragraph]
-                if run.italic == true { attributes[.obliqueness] = 0.18 }
+                if run.italic == true && run.mono == true { attributes[.obliqueness] = 0.18 }
                 if run.strike == true { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
                 if let id = run.action { attributes[.link] = "linche-action://\(id)" }
                 result.append(NSAttributedString(string: run.text, attributes: attributes))
+            }
+            if node.footerText == true {
+                return NativeFooterText(text: result, width: width)
             }
             text.attributedText = result
             let height = ceil(text.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height)

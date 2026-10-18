@@ -9,12 +9,14 @@ enum NativeTypography {
         }
     }()
 
-    static func font(size: CGFloat, bold: Bool = false) -> UIFont {
+    static func font(size: CGFloat, bold: Bool = false, italic: Bool = false) -> UIFont {
         _ = registered
         let base = UIFont(name: "KingHwaOldSong", size: size) ?? UIFont.systemFont(ofSize: size)
-        if bold, let descriptor = base.fontDescriptor.withSymbolicTraits(.traitBold) {
-            return UIFont(descriptor: descriptor, size: size)
-        }
-        return base
+        var descriptor = base.fontDescriptor
+        if bold, let boldDescriptor = descriptor.withSymbolicTraits(.traitBold) { descriptor = boldDescriptor }
+        // This bundled typeface has no italic face. Transform the glyph font
+        // itself so UIKit does not silently substitute an upright face.
+        if italic { descriptor = descriptor.withMatrix(CGAffineTransform(a: 1, b: 0, c: 0.2, d: 1, tx: 0, ty: 0)) }
+        return UIFont(descriptor: descriptor, size: size)
     }
 }
