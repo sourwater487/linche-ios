@@ -8,6 +8,7 @@ final class ClawdLoadingView: UIView {
     private enum Outcome { case success, failure }
     private struct Animation: Decodable {
         let fps: Double
+        let failureLoopStart: Int
         let colors: [String]
         // Each block: center x/y, width/height, rotation degrees, palette, alpha.
         let clips: [String: [[[Double]]]]
@@ -132,8 +133,8 @@ final class ClawdLoadingView: UIView {
                 guard let self, self.generation == expected else { return }
                 self.stopAnimating()
             }
-        } else if (outcome == .failure && now >= outcomeAt + (reduced ? 0 : 3)) || (reduced && outcome == nil) {
-            // Hold the failed pose without burning CPU until the user retries.
+        } else if reduced && (outcome == nil || (outcome == .failure && now >= outcomeAt)) {
+            // Only Reduce Motion holds a still pose. Normal failures keep smoking.
             displayLink?.invalidate(); displayLink = nil
         }
     }
@@ -158,8 +159,18 @@ final class ClawdLoadingView: UIView {
             return
         }
         let elapsed = max(0, now - (active ? outcomeAt : startedAt))
-        let index = reduced ? 0 : clip == "walk" ? Int(elapsed * animation.fps) % frames.count
-            : min(frames.count - 1, Int(elapsed * animation.fps))
+        let frameNumber = Int(elapsed * animation.fps)
+        let index: Int
+        if reduced {
+            index = 0
+        } else if clip == "walk" {
+            index = frameNumber % frames.count
+        } else if clip == "failure", animation.failureLoopStart >= 0,
+                  animation.failureLoopStart < frames.count, frameNumber >= animation.failureLoopStart {
+            index = animation.failureLoopStart + (frameNumber - animation.failureLoopStart) % (frames.count - animation.failureLoopStart)
+        } else {
+            index = min(frames.count - 1, frameNumber)
+        }
         context.saveGState()
         context.translateBy(x: bounds.midX, y: bounds.midY - 25)
         for block in frames[index] where block.count == 7 {

@@ -82,12 +82,8 @@ def walk(t):
     frame = []
     phase = t / .6
     stairs(frame, phase)
-    squash = 1
-    if phase < .12:
-        squash = .80 + phase / .12 * .20
-    if phase > .84:
-        squash = 1 - math.sin((phase - .84) / .16 * math.pi) * .22
-    sprite(frame, y=-20 * squash - math.sin(phase * math.pi) * 25, sx=2 - squash, sy=squash)
+    # Translate the whole original silhouette; feet never stride or stretch.
+    sprite(frame, y=-20 - math.sin(phase * math.pi) * 25)
     return frame
 
 
@@ -141,7 +137,7 @@ def failure(t, reduced=False):
         # Smoke and little error crosses drift above the fallen character.
         for i in range(3):
             age = (max(0, t - 1.5) + i * .48) % 1.7
-            opacity = min(1, max(0, (t - 1.48) * 3)) * (.75 - age * .25)
+            opacity = min(1, max(0, (t - 1.48) * 3)) * .75 * math.sin(math.pi * age / 1.7)
             x = 4 + math.sin(age * 3 + i) * 8
             y = 61 - age * 28
             rect(frame, x, y, 7 + age * 4, 5, 7, opacity)
@@ -152,20 +148,22 @@ def failure(t, reduced=False):
 
 def build():
     clips = {name: [fn(i / FPS) for i in range(round(duration * FPS) + 1)]
-             for name, fn, duration in [('walk', walk, .6), ('success', success, 1.3), ('failure', failure, 3.0)]}
+             for name, fn, duration in [('walk', walk, .6), ('success', success, 1.3), ('failure', failure, 4.7)]}
     # Do not repeat the walking endpoint: it is the next cycle's first frame.
     clips['walk'].pop()
+    # Fall once, then loop the settled pose's complete 1.7-second smoke cycle.
+    clips['failure'].pop()
     still = []
     stairs(still)
     sprite(still)
     clips['reducedWalk'] = [still]
     clips['reducedSuccess'] = [success(0, True)]
     clips['reducedFailure'] = [failure(0, True)]
-    return {'fps': FPS, 'colors': COLORS, 'clips': clips}
+    return {'fps': FPS, 'failureLoopStart': 3 * FPS, 'colors': COLORS, 'clips': clips}
 
 
 def preview(data, path):
-    html = '''<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clawd 加载动画预览</title><style>body{margin:0;background:#eee9e3;color:#463d36;font:14px system-ui;text-align:center}canvas{width:min(100vw,393px);height:auto;background:#faf8f4;border-radius:24px;margin:16px auto;display:block}button{font:inherit;padding:9px 13px;margin:4px;border:1px solid #bcb5ac;background:transparent;border-radius:10px;color:inherit}p{margin:8px}body.dark{background:#252422;color:#e9e4dd}body.dark canvas{background:#171716}</style><p>同一份像素帧：加载 → 成功 / 失败</p><div><button onclick="play('walk')">重新加载</button><button onclick="play('success')">连接成功</button><button onclick="play('failure')">连接失败</button><button onclick="document.body.classList.toggle('dark')">日 / 夜</button><button onclick="reduced=!reduced">减少动态</button></div><canvas id="stage" width="393" height="660"></canvas><p id="status">加载中</p><p>动作素材预览；不是 iOS 模拟器截图。</p><script>const data=DATA;const c=document.querySelector('canvas'),ctx=c.getContext('2d');let mode='walk',start=performance.now(),reduced=false;function play(m){mode=m;start=performance.now()}function render(now){const t=(now-start)/1000;let key=reduced?'reduced'+mode[0].toUpperCase()+mode.slice(1):mode;const frames=data.clips[key];const i=mode==='walk'?Math.floor(t*data.fps)%frames.length:Math.min(frames.length-1,Math.floor(t*data.fps));ctx.clearRect(0,0,c.width,c.height);ctx.save();ctx.translate(c.width/2,c.height/2-25);for(const [x,y,w,h,a,color,alpha]of frames[i]){ctx.save();ctx.translate(x,y);ctx.rotate(a*Math.PI/180);ctx.globalAlpha=alpha;ctx.fillStyle=color===0&&document.body.classList.contains('dark')?'#c7c2bb':data.colors[color];ctx.fillRect(-w/2,-h/2,w,h);ctx.restore()}ctx.restore();document.querySelector('#status').textContent=mode==='walk'?'加载中':mode==='success'?'连接成功 · 欢迎回来':'连接失败 · 重新连接';requestAnimationFrame(render)}requestAnimationFrame(render);</script>'''
+    html = '''<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clawd 加载动画预览</title><style>body{margin:0;background:#eee9e3;color:#463d36;font:14px system-ui;text-align:center}canvas{width:min(100vw,393px);height:auto;background:#faf8f4;border-radius:24px;margin:16px auto;display:block}button{font:inherit;padding:9px 13px;margin:4px;border:1px solid #bcb5ac;background:transparent;border-radius:10px;color:inherit}p{margin:8px}body.dark{background:#252422;color:#e9e4dd}body.dark canvas{background:#171716}</style><p>同一份像素帧：加载 → 成功 / 失败</p><div><button onclick="play('walk')">重新加载</button><button onclick="play('success')">连接成功</button><button onclick="play('failure')">连接失败</button><button onclick="document.body.classList.toggle('dark')">日 / 夜</button><button onclick="reduced=!reduced">减少动态</button></div><canvas id="stage" width="393" height="660"></canvas><p id="status">加载中</p><p>动作素材预览；不是 iOS 模拟器截图。</p><script>const data=DATA;const c=document.querySelector('canvas'),ctx=c.getContext('2d');let mode='walk',start=performance.now(),reduced=false;function play(m){mode=m;start=performance.now()}function render(now){const t=(now-start)/1000;let key=reduced?'reduced'+mode[0].toUpperCase()+mode.slice(1):mode;const frames=data.clips[key];const n=Math.floor(t*data.fps),loop=data.failureLoopStart;const i=reduced?0:mode==='walk'?n%frames.length:mode==='failure'&&n>=loop?loop+(n-loop)%(frames.length-loop):Math.min(frames.length-1,n);ctx.clearRect(0,0,c.width,c.height);ctx.save();ctx.translate(c.width/2,c.height/2-25);for(const [x,y,w,h,a,color,alpha]of frames[i]){ctx.save();ctx.translate(x,y);ctx.rotate(a*Math.PI/180);ctx.globalAlpha=alpha;ctx.fillStyle=color===0&&document.body.classList.contains('dark')?'#c7c2bb':data.colors[color];ctx.fillRect(-w/2,-h/2,w,h);ctx.restore()}ctx.restore();document.querySelector('#status').textContent=mode==='walk'?'加载中':mode==='success'?'连接成功 · 欢迎回来':'连接失败 · 重新连接';requestAnimationFrame(render)}requestAnimationFrame(render);</script>'''
     path.write_text(html.replace('DATA', json.dumps(data, separators=(',', ':'))))
 
 

@@ -35,6 +35,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         assert b'group.com.linche.privateapp.garden' in binary and b'com.apple.security.application-groups' in binary, 'Missing shared-group entitlement'
     animation = json.loads(archive.read('Payload/LinChe.app/ClawdAnimation.json'))
     assert animation['fps'] == 30, 'Unexpected animation frame rate'
+    assert 0 < animation['failureLoopStart'] < len(animation['clips']['failure']), 'Invalid failure loop'
     for clip in ('walk', 'success', 'failure', 'reducedWalk', 'reducedSuccess', 'reducedFailure'):
         frames = animation['clips'][clip]
         assert frames, 'Empty animation clip'
