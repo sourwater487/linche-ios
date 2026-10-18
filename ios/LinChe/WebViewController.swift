@@ -95,6 +95,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             let script = """
             if (location.hostname === '\(homeURL.host!)') {
                 document.documentElement.dataset.lincheClient = 'ios';
+                document.documentElement.dataset.webInputZoomSafe = 'true';
                 const style = document.createElement('style');
                 style.id = 'linche-native-layout';
                 style.textContent = \(literal);
@@ -154,10 +155,13 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                 const cover = 'width=device-width, initial-scale=1, viewport-fit=cover';
                 if (viewport) {
                     const keepCover = () => {
-                        if (viewport.content !== cover) viewport.content = cover;
+                        const chat = document.documentElement.classList.contains('chat-route-active');
+                        const target = cover + (chat ? ', maximum-scale=1, user-scalable=no' : '');
+                        if (viewport.content !== target) viewport.content = target;
                     };
                     keepCover();
                     new MutationObserver(keepCover).observe(viewport, { attributes: true, attributeFilter: ['content'] });
+                    new MutationObserver(keepCover).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
                 }
             }
             """
