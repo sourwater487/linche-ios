@@ -41,11 +41,12 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         placeholder.font = editor.font
         placeholder.textColor = .placeholderText
         placeholder.isUserInteractionEnabled = false
-        actions.tintColor = .label
-        send.tintColor = .label
-        microphone.tintColor = .label
-        microphone.imageEdgeInsets = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: -8)
-        send.imageEdgeInsets = UIEdgeInsets(top: 0, left: -8, bottom: 0, right: 8)
+        actions.tintColor = .secondaryLabel
+        send.tintColor = .secondaryLabel
+        microphone.tintColor = .secondaryLabel
+        actions.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
+        microphone.imageEdgeInsets = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: -12)
+        send.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
         microphone.accessibilityIdentifier = "native-microphone"
         microphone.addTarget(self, action: #selector(toggleMicrophone), for: .touchUpInside)
         voicePlaceholder.text = "▏▏▏▏▏  语音暂未开放"
