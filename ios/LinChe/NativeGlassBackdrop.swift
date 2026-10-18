@@ -44,6 +44,8 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         addSubview(wallpaper)
         table.backgroundColor = .clear
         table.separatorStyle = .none
+        table.showsVerticalScrollIndicator = false
+        table.showsHorizontalScrollIndicator = false
         table.contentInsetAdjustmentBehavior = .never
         table.estimatedRowHeight = 0
         table.estimatedSectionHeaderHeight = 0

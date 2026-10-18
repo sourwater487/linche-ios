@@ -154,3 +154,11 @@ html[data-linche-client="ios"] .chat-page .chat-input-row textarea {
 html[data-linche-client="ios"][data-linche-keyboard="open"] .chat-page .chat-composer {
   bottom: 8px !important;
 }
+
+/* Hide only the chat timeline indicator; scrolling remains enabled. */
+html[data-linche-client="ios"] .chat-page .messages-area {
+  scrollbar-width: none;
+}
+html[data-linche-client="ios"] .chat-page .messages-area::-webkit-scrollbar {
+  display: none;
+}
