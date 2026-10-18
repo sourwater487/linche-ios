@@ -44,6 +44,8 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         actions.tintColor = .label
         send.tintColor = .label
         microphone.tintColor = .label
+        microphone.imageEdgeInsets = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: -8)
+        send.imageEdgeInsets = UIEdgeInsets(top: 0, left: -8, bottom: 0, right: 8)
         microphone.accessibilityIdentifier = "native-microphone"
         microphone.addTarget(self, action: #selector(toggleMicrophone), for: .touchUpInside)
         voicePlaceholder.text = "▏▏▏▏▏  语音暂未开放"
@@ -114,11 +116,12 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         tintColor = .label
         streaming = state["streaming"] as? Bool ?? false
         voicePreview = state["voicePreview"] as? Bool ?? false
-        editor.isHidden = voicePreview
+        // Keep the first responder and its measured height while showing the overlay.
+        editor.textColor = voicePreview ? .clear : .label
+        editor.tintColor = voicePreview ? .clear : .label
         voicePlaceholder.isHidden = !voicePreview
         microphone.accessibilityLabel = voicePreview ? "返回文字输入" : "语音输入（暂未开放）"
         microphone.accessibilityTraits = voicePreview ? [.button, .selected] : [.button]
-        if voicePreview { editor.resignFirstResponder() }
         if let icons = state["icons"] as? [String: String] {
             if let image = NativeArtwork.image(icons["send"]) { send.setImage(image, for: .normal) }
             if let image = NativeArtwork.image(icons["attach"]) { actions.setImage(image, for: .normal) }
@@ -153,11 +156,11 @@ final class NativeComposerView: UIView, UITextViewDelegate {
     override func layoutSubviews() { super.layoutSubviews(); updateHeight() }
 
     private func updateHeight() {
-        placeholder.isHidden = !editor.text.isEmpty
+        placeholder.isHidden = voicePreview || !editor.text.isEmpty
         guard editor.bounds.width > 0 else { return }
         let measured = editor.sizeThatFits(CGSize(width: editor.bounds.width, height: .greatestFiniteMagnitude)).height
         let textHeight = max(editor.font?.lineHeight ?? 18, measured - editor.textContainerInset.top - editor.textContainerInset.bottom)
-        let needed = voicePreview ? 44 : textHeight + 20
+        let needed = textHeight + 20
         let height = min(160, max(44, ceil(needed)))
         let inset = max(10, (height - textHeight) / 2)
         if abs(editor.textContainerInset.top - inset) > 0.1 {
@@ -188,7 +191,6 @@ final class NativeComposerView: UIView, UITextViewDelegate {
     @objc private func openActions() { emit("actions") }
     @objc private func toggleMicrophone() {
         editor.unmarkText()
-        editor.resignFirstResponder()
         emit("microphone")
     }
     @objc private func sendMessage() {
