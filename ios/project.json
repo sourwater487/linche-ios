@@ -31,7 +31,6 @@
       "settings": {
         "base": {
           "PRODUCT_BUNDLE_IDENTIFIER": "com.linche.privateapp",
-          "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": "Tests/Simulator.entitlements",
           "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
           "CODE_SIGN_ENTITLEMENTS": "Shared/Garden.entitlements"
         }
@@ -92,25 +91,6 @@
         }
       ]
     },
-    "LayoutTests": {
-      "type": "bundle.ui-testing",
-      "platform": "iOS",
-      "sources": [
-        "Tests"
-      ],
-      "dependencies": [
-        {
-          "target": "LinChe"
-        }
-      ],
-      "settings": {
-        "base": {
-          "PRODUCT_BUNDLE_IDENTIFIER": "com.linche.privateapp.LayoutTests",
-          "GENERATE_INFOPLIST_FILE": "YES",
-          "TEST_TARGET_NAME": "LinChe"
-        }
-      }
-    },
     "GardenWidget": {
       "type": "app-extension",
       "platform": "iOS",
@@ -150,11 +130,6 @@
         "targets": {
           "LinChe": "all"
         }
-      },
-      "test": {
-        "targets": [
-          "LayoutTests"
-        ]
       }
     }
   }

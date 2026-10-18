@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+python3 scripts/validate-project.py
 
 if [[ "$(uname -s)" != Darwin ]]; then
   echo 'iOS builds require macOS and Xcode. Use the Build iOS IPA GitHub workflow.' >&2
