@@ -149,3 +149,8 @@ html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass
 html[data-linche-client="ios"] .chat-page .chat-input-row textarea {
   font-size: var(--chat-message-font-size, 14px);
 }
+
+/* The keyboard has its own safe area; leave only a small visible gap above it. */
+html[data-linche-client="ios"][data-linche-keyboard="open"] .chat-page .chat-composer {
+  bottom: 8px !important;
+}

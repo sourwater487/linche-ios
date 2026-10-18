@@ -8,6 +8,7 @@ final class NativeComposerView: UIView, UITextViewDelegate {
     private let actions = UIButton(type: .system)
     private let send = UIButton(type: .system)
     private var heightConstraint: NSLayoutConstraint!
+    private var placeholderTop: NSLayoutConstraint!
     private var applying = false
     private var revision = 0
     private var conversationID = ""
@@ -51,6 +52,7 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         placeholder.translatesAutoresizingMaskIntoConstraints = false
         editor.addSubview(placeholder)
         heightConstraint = heightAnchor.constraint(equalToConstant: 48)
+        placeholderTop = placeholder.topAnchor.constraint(equalTo: editor.topAnchor, constant: 13)
         NSLayoutConstraint.activate([
             material.leadingAnchor.constraint(equalTo: leadingAnchor), material.trailingAnchor.constraint(equalTo: trailingAnchor),
             material.topAnchor.constraint(equalTo: topAnchor), material.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -60,7 +62,7 @@ final class NativeComposerView: UIView, UITextViewDelegate {
             send.widthAnchor.constraint(equalToConstant: 44), send.heightAnchor.constraint(equalToConstant: 44),
             editor.leadingAnchor.constraint(equalTo: actions.trailingAnchor, constant: 2), editor.trailingAnchor.constraint(equalTo: send.leadingAnchor, constant: -2),
             editor.topAnchor.constraint(equalTo: topAnchor), editor.bottomAnchor.constraint(equalTo: bottomAnchor),
-            placeholder.leadingAnchor.constraint(equalTo: editor.leadingAnchor), placeholder.topAnchor.constraint(equalTo: editor.topAnchor, constant: 13),
+            placeholder.leadingAnchor.constraint(equalTo: editor.leadingAnchor), placeholderTop,
             heightConstraint
         ])
     }
@@ -129,8 +131,15 @@ final class NativeComposerView: UIView, UITextViewDelegate {
     private func updateHeight() {
         placeholder.isHidden = !editor.text.isEmpty
         guard editor.bounds.width > 0 else { return }
-        let needed = editor.sizeThatFits(CGSize(width: editor.bounds.width, height: .greatestFiniteMagnitude)).height
+        let measured = editor.sizeThatFits(CGSize(width: editor.bounds.width, height: .greatestFiniteMagnitude)).height
+        let textHeight = max(editor.font?.lineHeight ?? 18, measured - editor.textContainerInset.top - editor.textContainerInset.bottom)
+        let needed = textHeight + 26
         let height = min(160, max(48, ceil(needed)))
+        let inset = max(13, (height - textHeight) / 2)
+        if abs(editor.textContainerInset.top - inset) > 0.1 {
+            editor.textContainerInset = UIEdgeInsets(top: inset, left: 0, bottom: inset, right: 0)
+        }
+        placeholderTop.constant = inset
         editor.isScrollEnabled = needed > 160
         if abs(heightConstraint.constant - height) > 0.5 {
             heightConstraint.constant = height

@@ -237,7 +237,10 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     private func updateNativeComposerLayout() {
         guard #available(iOS 26.0, *), let composer = nativeComposer else { return }
-        composerBottom?.constant = -max(10, view.safeAreaInsets.bottom)
+        // With usesBottomSafeArea=false, reserve the home indicator only while
+        // the keyboard is closed. An open keyboard needs just the visible gap.
+        let keyboardVisible = (keyboardTop ?? view.bounds.height) < view.bounds.height - view.safeAreaInsets.bottom
+        composerBottom?.constant = keyboardVisible ? -8 : -max(10, view.safeAreaInsets.bottom)
         nativeGlass?.setComposerFrame(composer.isHidden ? nil : composer.frame, extras: composerExtras)
         guard !composer.isHidden, !composer.generation.isEmpty else { return }
         let key = "\(composer.generation):\(composer.measuredHeight)"
@@ -279,7 +282,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
                     distance = Math.max(0, contentEnd + fromPadding - messageArea.clientHeight - messageArea.scrollTop);
                     followLatest = distance < 96;
                 }
-                const targetBottom = Math.max(10, \(Int(view.safeAreaInsets.bottom.rounded())));
+                const targetBottom = \(height - contentHeight) > 0 ? 8 : Math.max(10, \(Int(view.safeAreaInsets.bottom.rounded())));
                 root.style.setProperty('--linche-safe-top', '\(top)px');
                 root.style.setProperty('--linche-background-height', '\(height)px');
                 if (composerHeight) root.style.setProperty('--linche-composer-height', composerHeight + 'px');
