@@ -98,6 +98,28 @@ private final class NativeReactionTap: UITapGestureRecognizer {
     var actionID = ""
 }
 
+/// UIKit installs some text-selection gestures only after attachment/layout.
+/// Set the dependency there, rather than racing their creation in the renderer.
+private final class NativeReactionTextView: UITextView {
+    weak var reactionTap: NativeReactionTap? {
+        didSet { selectionGestures.removeAll(); prioritizeReaction() }
+    }
+    private var selectionGestures = Set<ObjectIdentifier>()
+    override func didMoveToWindow() { super.didMoveToWindow(); prioritizeReaction() }
+    override func layoutSubviews() { super.layoutSubviews(); prioritizeReaction() }
+    private func prioritizeReaction() {
+        guard let reactionTap else { return }
+        let selection = interactions.compactMap { $0 as? UITextInteraction }
+            .flatMap { $0.gesturesForFailureRequirements }
+        let taps = (gestureRecognizers ?? []).filter { $0 is UITapGestureRecognizer }
+        for gesture in selection + taps where !(gesture is UIPanGestureRecognizer) {
+            if selectionGestures.insert(ObjectIdentifier(gesture)).inserted {
+                gesture.require(toFail: reactionTap)
+            }
+        }
+    }
+}
+
 /// Text and material are children of the same view. Neither is positioned from
 /// a WebView rectangle, so scrolling and text reflow cannot separate them.
 @available(iOS 26.0, *)
@@ -255,6 +277,11 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
                 tap.numberOfTapsRequired = 2
                 tap.cancelsTouchesInView = false
                 glass.addGestureRecognizer(tap)
+                func connectText(_ view: UIView) {
+                    if let text = view as? NativeReactionTextView { text.reactionTap = tap }
+                    view.subviews.forEach(connectText)
+                }
+                connectText(child)
             }
             return glass
         case "group":
@@ -366,7 +393,7 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
             }
             return button
         default:
-            let text = UITextView()
+            let text = NativeReactionTextView()
             text.backgroundColor = .clear
             text.isEditable = false
             text.isSelectable = true
