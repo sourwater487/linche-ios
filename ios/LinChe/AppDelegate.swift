@@ -28,5 +28,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         #endif
         self.window = window
         window.makeKeyAndVisible()
+        if connectionOptions.urlContexts.contains(where: { $0.url.scheme == "linche" && $0.url.host == "garden" }) {
+            (window.rootViewController as? EntryViewController)?.openGarden()
+        }
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard URLContexts.contains(where: { $0.url.scheme == "linche" && $0.url.host == "garden" }) else { return }
+        (window?.rootViewController as? EntryViewController)?.openGarden()
     }
 }

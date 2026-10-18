@@ -21,6 +21,13 @@ xcodebuild -project LinChe.xcodeproj -scheme LinChe -configuration Release \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
   CURRENT_PROJECT_VERSION="$build_number" build
 
+# Preserve App Groups for SideStore's entitlement discovery. These ad-hoc
+# signatures contain no identity/certificate and must still be re-signed to install.
+app_path="build/device/Build/Products/Release-iphoneos/LinChe.app"
+codesign --force --sign - --generate-entitlement-der --entitlements Shared/Garden.entitlements "$app_path/PlugIns/GardenWidget.appex"
+codesign --force --sign - --generate-entitlement-der --entitlements Shared/Garden.entitlements "$app_path"
+codesign --verify --deep --strict "$app_path"
+
 # A fresh package directory prevents stale bundles entering a subsequent build.
 package_dir="$(mktemp -d "$PWD/build/package.XXXXXX")"
 mkdir -p "$package_dir/Payload"

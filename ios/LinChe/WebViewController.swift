@@ -4,6 +4,7 @@ import WebKit
 /// A persistent browser container for the existing site. No API keys, account
 /// credentials, APNs entitlement, or privileged JavaScript bridge are embedded.
 final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate, WKScriptMessageHandler {
+    var initialPath = ""
     private let homeURL: URL = {
         #if DEBUG
         // Simulator UI tests use only a loopback fixture server, never user data.
@@ -219,7 +220,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             composer.onHeightChange = { [weak self] in self?.view.setNeedsLayout() }
         }
         configureLoadingUI()
-        webView.load(URLRequest(url: homeURL))
+        webView.load(URLRequest(url: initialPath.isEmpty ? homeURL : homeURL.appendingPathComponent(initialPath)))
     }
 
     override func viewSafeAreaInsetsDidChange() {
@@ -368,6 +369,12 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     func reloadAfterAuthentication() { retryLoading() }
+
+    func openGarden() {
+        initialPath = "garden"
+        guard isViewLoaded else { return }
+        webView.load(URLRequest(url: homeURL.appendingPathComponent("garden")))
+    }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.host == homeURL.host else { return }

@@ -21,6 +21,18 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     magic, cpu = struct.unpack_from('<II', executable)
     assert magic == 0xFEEDFACF and cpu == 0x0100000C, 'Expected arm64 Mach-O executable'
     assert any(name.endswith('/Assets.car') for name in names), 'Missing app icons'
+    widget_root = 'Payload/LinChe.app/PlugIns/GardenWidget.appex/'
+    widget = plistlib.loads(archive.read(widget_root + 'Info.plist'))
+    assert widget['CFBundleIdentifier'] == 'com.linche.privateapp.GardenWidget', 'Unexpected widget identifier'
+    assert widget['NSExtension']['NSExtensionPointIdentifier'] == 'com.apple.widgetkit-extension', 'Not a WidgetKit extension'
+    assert widget['CFBundleVersion'] == info['CFBundleVersion'], 'Widget build mismatch'
+    assert widget['CFBundleShortVersionString'] == info['CFBundleShortVersionString'], 'Widget version mismatch'
+    widget_executable = archive.read(widget_root + widget['CFBundleExecutable'])
+    assert struct.unpack_from('<II', widget_executable) == (0xFEEDFACF, 0x0100000C), 'Widget must be an arm64 device binary'
+    assert 'linche' in info['CFBundleURLTypes'][0]['CFBundleURLSchemes'], 'Missing Garden deep link'
+    # Ad-hoc signing must carry the App Group for SideStore to re-provision it.
+    for binary in (executable, widget_executable):
+        assert b'group.com.linche.privateapp.garden' in binary and b'com.apple.security.application-groups' in binary, 'Missing shared-group entitlement'
     animation = json.loads(archive.read('Payload/LinChe.app/ClawdAnimation.json'))
     assert animation['fps'] == 30, 'Unexpected animation frame rate'
     for clip in ('walk', 'success', 'failure', 'reducedWalk', 'reducedSuccess', 'reducedFailure'):

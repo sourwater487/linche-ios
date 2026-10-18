@@ -21,6 +21,7 @@ final class EntryViewController: UIViewController {
     private var expiryTimer: Timer?
     private var inFlight = false
     private var loadedToken: String?
+    private var pendingGarden = false
     private var panelCenter: NSLayoutConstraint!
     private var failurePanelTop: NSLayoutConstraint!
     private enum Action { case pair, renew, retry }
@@ -105,6 +106,7 @@ final class EntryViewController: UIViewController {
     }
 
     @objc private func expired() {
+        GardenWidgetSync.invalidate()
         expiryTimer?.invalidate()
         web?.view.isHidden = true
         show(.renew, "登录已到期，验证身份后可继续使用 30 天。")
@@ -187,10 +189,12 @@ final class EntryViewController: UIViewController {
     }
 
     private func open(_ session: DeviceSession) async throws {
+        GardenWidgetSync.refresh(session)
         // Foreground checks must not reload, hide, or disturb the current page.
         if loadedToken == session.token, let web = web {
             web.view.isHidden = false
             panel.isHidden = true
+            if pendingGarden { openGarden() }
             return
         }
         let store = WKWebsiteDataStore.default().httpCookieStore
@@ -210,6 +214,7 @@ final class EntryViewController: UIViewController {
             launchSpinner.startAnimating()
             await NativeAppearanceMigration().transfer(to: auth.origin)
             let controller = WebViewController()
+            if pendingGarden { controller.initialPath = "garden"; pendingGarden = false }
             controller.loadingStartedAt = launchSpinner.startedAt
             addChild(controller)
             controller.view.translatesAutoresizingMaskIntoConstraints = false
@@ -233,6 +238,14 @@ final class EntryViewController: UIViewController {
         message.text = nil
         web?.view.isHidden = false
         panel.isHidden = true
+        if pendingGarden { openGarden() }
+    }
+
+    func openGarden() {
+        pendingGarden = true
+        guard let web, !web.view.isHidden else { return }
+        pendingGarden = false
+        web.openGarden()
     }
 
     @objc private func confirmRepair() {
@@ -242,6 +255,7 @@ final class EntryViewController: UIViewController {
             guard let self = self else { return }
             do {
                 try self.auth.resetPairing()
+                GardenWidgetSync.invalidate()
                 self.expiryTimer?.invalidate()
                 self.show(.pair, "请输入新的配对码。")
             } catch { self.show(.retry, error.localizedDescription) }
