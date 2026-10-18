@@ -49,17 +49,43 @@ struct GardenWidgetView: View {
     init(entry: GardenEntry) { self.entry = entry; _ = GardenFont.register }
 
     private var content: some View {
-        Text(entry.text)
-            .font(.custom("KingHwaOldSong", fixedSize: entry.text.count > 65 ? 14 : 16))
-            .foregroundStyle(.primary)
-            .multilineTextAlignment(.center)
-            .lineSpacing(4)
-            .lineLimit(7)
-            .minimumScaleFactor(0.85)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(18)
-            .widgetURL(URL(string: "linche://garden"))
-            .accessibilityLabel(entry.text)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("GARDEN")
+                    .font(.custom("KingHwaOldSong", fixedSize: 9))
+                    .tracking(2)
+                    .fixedSize()
+                Rectangle()
+                    .frame(width: 18, height: 0.5)
+                Spacer(minLength: 0)
+            }
+            .opacity(0.6)
+            .accessibilityHidden(true)
+
+            Text(entry.text)
+                .font(.custom("KingHwaOldSong", fixedSize: entry.text.count > 45 ? 14 : 16))
+                .multilineTextAlignment(.leading)
+                .lineSpacing(3)
+                .lineLimit(5)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .layoutPriority(1)
+
+            HStack {
+                Spacer(minLength: 0)
+                Text("Che")
+                    .font(.custom("KingHwaOldSong", fixedSize: 11))
+                    .tracking(0.8)
+                    .fixedSize()
+            }
+            .opacity(0.65)
+            .accessibilityHidden(true)
+        }
+        .foregroundStyle(.primary)
+        .padding(16)
+        .widgetURL(URL(string: "linche://garden"))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(entry.text)
     }
 
     var body: some View {
