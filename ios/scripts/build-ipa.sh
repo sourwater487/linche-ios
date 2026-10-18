@@ -12,6 +12,7 @@ if (( ${sdk_version%%.*} < 26 )); then
   exit 1
 fi
 python3 scripts/prepare-icons.py
+python3 scripts/prepare-font.py
 xcodegen generate --spec project.json
 build_number="${LINCHE_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-1}}"
 xcodebuild -project LinChe.xcodeproj -scheme LinChe -configuration Release \

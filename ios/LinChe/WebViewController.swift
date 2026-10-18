@@ -15,6 +15,11 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }()
     private var webView: WKWebView!
     private var nativeGlass: NativeGlassBackdrop?
+    private var composerStorage: UIView?
+    @available(iOS 26.0, *) private var nativeComposer: NativeComposerView? { composerStorage as? NativeComposerView }
+    private var composerBottom: NSLayoutConstraint?
+    private var composerExtras: CGFloat = 0
+    private var composerLayoutKey = ""
     private var webTop: NSLayoutConstraint!
     private var webBottom: NSLayoutConstraint!
     private var fixedPageLayoutActive = false
@@ -42,9 +47,11 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         configuration.userContentController.add(self, name: "pageReady")
         if #available(iOS 26.0, *) {
             configuration.userContentController.add(self, name: "nativeGlass")
+            configuration.userContentController.add(self, name: "nativeComposer")
             configuration.userContentController.addUserScript(WKUserScript(source: """
                 if (location.hostname === '\(homeURL.host!)' && window === window.top) {
                     window.lincheNativeGlassVersion = 2;
+                    window.lincheNativeComposerVersion = 2;
                 }
                 """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
             let backdrop = NativeGlassBackdrop(frame: view.bounds)
@@ -190,6 +197,22 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             webTop,
             webBottom
         ])
+        if #available(iOS 26.0, *) {
+            let composer = NativeComposerView()
+            composer.isHidden = true
+            composer.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(composer)
+            composerStorage = composer
+            view.keyboardLayoutGuide.usesBottomSafeArea = false
+            let bottom = composer.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -max(10, view.safeAreaInsets.bottom))
+            composerBottom = bottom
+            NSLayoutConstraint.activate([
+                composer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+                composer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16), bottom
+            ])
+            composer.onEvent = { [weak self] detail in self?.sendComposerEvent(detail) }
+            composer.onHeightChange = { [weak self] in self?.view.setNeedsLayout() }
+        }
         configureLoadingUI()
         webView.load(URLRequest(url: homeURL))
     }
@@ -201,7 +224,26 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        updateNativeComposerLayout()
         updatePageInsets()
+    }
+
+    private func sendComposerEvent(_ detail: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: detail),
+              let literal = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.dispatchEvent(new CustomEvent('linche:native-composer', {detail: \(literal)}));")
+    }
+
+    private func updateNativeComposerLayout() {
+        guard #available(iOS 26.0, *), let composer = nativeComposer else { return }
+        composerBottom?.constant = -max(10, view.safeAreaInsets.bottom)
+        nativeGlass?.setComposerFrame(composer.isHidden ? nil : composer.frame, extras: composerExtras)
+        guard !composer.isHidden, !composer.generation.isEmpty else { return }
+        let key = "\(composer.generation):\(composer.measuredHeight)"
+        if key != composerLayoutKey {
+            composerLayoutKey = key
+            sendComposerEvent(["kind": "layout", "generation": composer.generation, "height": composer.measuredHeight])
+        }
     }
 
     private func updatePageInsets() {
@@ -318,7 +360,22 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.host == homeURL.host else { return }
-        if message.name == "nativeGlass", #available(iOS 26.0, *),
+        if message.name == "nativeComposer", #available(iOS 26.0, *),
+           let body = message.body as? [String: Any], let composer = nativeComposer {
+            if body["command"] as? String == "focus" { composer.focus(body); return }
+            if body["active"] as? Bool == false {
+                guard body["generation"] as? String == composer.generation else { return }
+                composer.reset(); composer.isHidden = true; composerLayoutKey = ""
+            } else {
+                composer.apply(body)
+                composer.isHidden = body["visible"] as? Bool != true
+                composerExtras = max(0, body["extrasHeight"] as? CGFloat ?? 0)
+                if composer.isHidden { composer.editor.resignFirstResponder() }
+            }
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
+            updateNativeComposerLayout()
+        } else if message.name == "nativeGlass", #available(iOS 26.0, *),
            let body = message.body as? [String: Any], let backdrop = nativeGlass,
            let generation = body["generation"] as? String, generation.count < 80 {
             switch body["action"] as? String {
@@ -366,6 +423,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     private func showFailure(_ message: String) {
+        if #available(iOS 26.0, *) { nativeComposer?.reset(); nativeComposer?.isHidden = true; composerLayoutKey = "" }
         resetNativeGlass()
         loading.stopAnimating()
         errorLabel.text = message
@@ -373,6 +431,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        if #available(iOS 26.0, *) { nativeComposer?.reset(); nativeComposer?.isHidden = true; composerLayoutKey = "" }
         resetNativeGlass()
         errorPanel.isHidden = true
         loading.startAnimating()

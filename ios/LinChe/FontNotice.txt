@@ -1,0 +1,12 @@
+京華老宋体 / KingHwaOldSong 3.0
+Copyright © 2022 TerryWang (王廷瑞 / 特里王). All rights reserved.
+KingHwa_OldSong / 京華老宋体 is a trademark of TerryWang.
+
+Original author release: https://zhuanlan.zhihu.com/p/1915922891633043436
+Site's existing CSS: https://fontsapi.zeoseven.com/309/main/result.css
+Unmodified binary mirror: https://github.com/DzmingLi/nur-packages/releases/tag/KingHwaOldSong-3.0
+SHA-256: f7fef9fc413e9e2343f0bb432c51cca41c44b8fe37f071dc86b050896ae9f9e2
+
+The font is fetched for this personal application's private device package.
+The font binary is not redistributed in the public source repository.
+The font's author declaration applies separately from the application's code.

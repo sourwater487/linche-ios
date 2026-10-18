@@ -5,6 +5,8 @@ import UIKit
 final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDelegate {
     private let wallpaper = UIImageView()
     private let table = UITableView(frame: .zero, style: .plain)
+    private let headerBlur = UIVisualEffectView()
+    private let headerMask = CAGradientLayer()
     private let inputGlass = UIVisualEffectView()
     private let latestGlass = UIVisualEffectView()
     private let latestButton = UIButton(type: .system)
@@ -30,6 +32,9 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
     private var pendingCommit = false
     private var pendingJump: String?
     private var changingLayout = false
+    private var composerFrame: CGRect?
+    private var composerExtras: CGFloat = 0
+    private var headerBottom: CGFloat = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -48,6 +53,11 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         table.keyboardDismissMode = .none
         table.accessibilityIdentifier = "native-chat-list"
         addSubview(table)
+        headerBlur.isUserInteractionEnabled = false
+        headerMask.colors = [UIColor.black.cgColor, UIColor.black.withAlphaComponent(0.65).cgColor, UIColor.clear.cgColor]
+        headerMask.locations = [0, 0.45, 1]
+        headerBlur.layer.mask = headerMask
+        addSubview(headerBlur)
         inputGlass.isUserInteractionEnabled = false
         addSubview(inputGlass)
         latestGlass.isUserInteractionEnabled = true
@@ -64,7 +74,7 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
     override func layoutSubviews() { super.layoutSubviews(); wallpaper.frame = bounds }
 
     func acceptsTouch(_ point: CGPoint) -> Bool {
-        !isHidden && !blocked && (table.frame.contains(point) || (!latestGlass.isHidden && latestGlass.frame.insetBy(dx: -5, dy: -5).contains(point)))
+        !isHidden && !blocked && ((point.y >= headerBottom && table.frame.contains(point)) || (!latestGlass.isHidden && latestGlass.frame.insetBy(dx: -5, dy: -5).contains(point)))
     }
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         if !isHidden && !blocked && !latestGlass.isHidden && latestGlass.frame.insetBy(dx: -5, dy: -5).contains(point) { return latestButton }
@@ -91,6 +101,7 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         conversationID = body["conversationId"] as? String ?? ""
         let dark = body["appearance"] as? String == "dark"
         overrideUserInterfaceStyle = dark ? .dark : .light
+        headerBlur.effect = UIBlurEffect(style: dark ? .dark : .light)
         backgroundColor = dark ? UIColor(white: 11 / 255, alpha: 1)
             : UIColor(red: 245 / 255, green: 242 / 255, blue: 237 / 255, alpha: 1)
         if background.isEmpty { prepared = true; completion(true); return }
@@ -132,11 +143,18 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         let oldWidth = table.bounds.width
         changingLayout = true
         let top = max(0, scaled(header).maxY)
-        let bottom = max(top, scaled(composer).minY - 8)
-        table.frame = CGRect(x: 0, y: top, width: bounds.width, height: bottom - top)
+        let bottom = max(top, (composerFrame?.minY).map { $0 - composerExtras } ?? scaled(composer).minY) - 8
+        // Scroll underneath the fading header instead of clipping at its lower edge.
+        table.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bottom)
+        table.contentInset.top = top + 8
+        table.verticalScrollIndicatorInsets.top = top
+        headerBottom = top
+        headerBlur.frame = CGRect(x: 0, y: 0, width: bounds.width, height: top + 24)
+        headerMask.frame = headerBlur.bounds
         // Keep the resting message clearance when the keyboard opens or the editor grows.
         table.contentInset.bottom = 36
         if oldWidth != table.bounds.width { heights.removeAll(); table.reloadData() }
+        inputGlass.isHidden = composerFrame != nil
         inputGlass.frame = scaled(input)
         if inputGlass.effect == nil { inputGlass.effect = UIGlassEffect(style: .regular) }
         inputGlass.cornerConfiguration = .corners(radius: .fixed(24))
@@ -154,6 +172,22 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         if !table.isDragging && !table.isDecelerating { commitRows() }
         updateLatest()
         return true
+    }
+
+    func setComposerFrame(_ frame: CGRect?, extras: CGFloat) {
+        composerFrame = frame; composerExtras = extras
+        inputGlass.isHidden = frame != nil
+        guard let frame, !isHidden else { return }
+        let bottom = max(0, frame.minY - extras - 8)
+        guard abs(table.frame.height - bottom) > 0.5 else { return }
+        let follow = nearBottom
+        changingLayout = true
+        table.frame.size.height = bottom
+        latestGlass.frame.origin.y = bottom - 34
+        table.layoutIfNeeded()
+        if follow { scrollToBottom(animated: false) }
+        changingLayout = false
+        updateLatest()
     }
 
     private var bottomOffset: CGFloat { max(-table.adjustedContentInset.top, table.contentSize.height + table.adjustedContentInset.bottom - table.bounds.height) }
@@ -183,13 +217,13 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
             } else if !sameOrder { table.reloadData() }
             table.layoutIfNeeded()
             if firstLayout {
-                if let saved = savedOffsets[conversationID] { table.contentOffset.y = min(bottomOffset, max(0, saved)) }
+                if let saved = savedOffsets[conversationID] { table.contentOffset.y = min(bottomOffset, max(-table.adjustedContentInset.top, saved)) }
                 else { scrollToBottom(animated: false) }
                 firstLayout = false
             } else if follow { scrollToBottom(animated: false) }
             else if let id = anchorID, let index = rows.firstIndex(where: { $0.id == id }) {
-                table.contentOffset.y = min(bottomOffset, max(0, table.rectForRow(at: IndexPath(row: index, section: 0)).minY + anchorDelta))
-            } else { table.contentOffset.y = min(bottomOffset, max(0, offset)) }
+                table.contentOffset.y = min(bottomOffset, max(-table.adjustedContentInset.top, table.rectForRow(at: IndexPath(row: index, section: 0)).minY + anchorDelta))
+            } else { table.contentOffset.y = min(bottomOffset, max(-table.adjustedContentInset.top, offset)) }
         }
         changingLayout = false
         resolveJump()

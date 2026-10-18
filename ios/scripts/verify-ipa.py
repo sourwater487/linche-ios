@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Reject simulator packages, missing executables, and accidentally bundled secrets."""
 import plistlib
+import hashlib
 from pathlib import PurePosixPath
 import struct
 import sys
@@ -12,6 +13,8 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     assert info['CFBundleIdentifier'] == 'com.linche.privateapp', 'Unexpected bundle identifier'
     assert info['CFBundleSupportedPlatforms'] == ['iPhoneOS'], 'Not an iPhone device build'
     assert info['CFBundlePackageType'] == 'APPL', 'Not an application'
+    font = archive.read('Payload/LinChe.app/KingHwaOldSong.ttf')
+    assert hashlib.sha256(font).hexdigest() == 'f7fef9fc413e9e2343f0bb432c51cca41c44b8fe37f071dc86b050896ae9f9e2', 'Missing or incorrect global font'
     executable = archive.read('Payload/LinChe.app/' + info['CFBundleExecutable'])
     magic, cpu = struct.unpack_from('<II', executable)
     assert magic == 0xFEEDFACF and cpu == 0x0100000C, 'Expected arm64 Mach-O executable'

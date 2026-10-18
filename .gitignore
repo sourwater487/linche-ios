@@ -10,3 +10,6 @@
 *.db
 __pycache__/
 artifact-keys/
+
+# Downloaded only for private device packaging
+ios/LinChe/KingHwaOldSong.ttf
