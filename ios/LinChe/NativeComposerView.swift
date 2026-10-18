@@ -7,6 +7,9 @@ final class NativeComposerView: UIView, UITextViewDelegate {
     private let placeholder = UILabel()
     private let actions = UIButton(type: .system)
     private let send = UIButton(type: .system)
+    private let microphone = UIButton(type: .system)
+    private let voicePlaceholder = UILabel()
+    private var voicePreview = false
     private var heightConstraint: NSLayoutConstraint!
     private var placeholderTop: NSLayoutConstraint!
     private var applying = false
@@ -40,12 +43,22 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         placeholder.isUserInteractionEnabled = false
         actions.tintColor = .label
         send.tintColor = .label
+        microphone.tintColor = .label
+        microphone.accessibilityIdentifier = "native-microphone"
+        microphone.addTarget(self, action: #selector(toggleMicrophone), for: .touchUpInside)
+        voicePlaceholder.text = "▏▏▏▏▏  语音暂未开放"
+        voicePlaceholder.font = NativeTypography.font(size: 11)
+        voicePlaceholder.textColor = .secondaryLabel
+        voicePlaceholder.textAlignment = .center
+        voicePlaceholder.adjustsFontSizeToFitWidth = true
+        voicePlaceholder.minimumScaleFactor = 0.8
+        voicePlaceholder.isHidden = true
         actions.accessibilityLabel = "Open input actions"
         actions.accessibilityIdentifier = "native-actions"
         actions.addTarget(self, action: #selector(openActions), for: .touchUpInside)
         send.accessibilityIdentifier = "native-send"
         send.addTarget(self, action: #selector(sendMessage), for: .touchUpInside)
-        for child in [actions, editor, send] {
+        for child in [actions, editor, microphone, send, voicePlaceholder] {
             child.translatesAutoresizingMaskIntoConstraints = false
             material.contentView.addSubview(child)
         }
@@ -60,7 +73,11 @@ final class NativeComposerView: UIView, UITextViewDelegate {
             actions.widthAnchor.constraint(equalToConstant: 44), actions.heightAnchor.constraint(equalToConstant: 44),
             send.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4), send.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
             send.widthAnchor.constraint(equalToConstant: 44), send.heightAnchor.constraint(equalToConstant: 44),
-            editor.leadingAnchor.constraint(equalTo: actions.trailingAnchor, constant: 2), editor.trailingAnchor.constraint(equalTo: send.leadingAnchor, constant: -2),
+            microphone.trailingAnchor.constraint(equalTo: send.leadingAnchor), microphone.bottomAnchor.constraint(equalTo: bottomAnchor),
+            microphone.widthAnchor.constraint(equalToConstant: 44), microphone.heightAnchor.constraint(equalToConstant: 44),
+            editor.leadingAnchor.constraint(equalTo: actions.trailingAnchor, constant: 2), editor.trailingAnchor.constraint(equalTo: microphone.leadingAnchor, constant: -2),
+            voicePlaceholder.leadingAnchor.constraint(equalTo: editor.leadingAnchor), voicePlaceholder.trailingAnchor.constraint(equalTo: editor.trailingAnchor),
+            voicePlaceholder.centerYAnchor.constraint(equalTo: centerYAnchor),
             editor.topAnchor.constraint(equalTo: topAnchor), editor.bottomAnchor.constraint(equalTo: bottomAnchor),
             placeholder.leadingAnchor.constraint(equalTo: editor.leadingAnchor), placeholderTop,
             heightConstraint
@@ -96,12 +113,19 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         editor.keyboardAppearance = overrideUserInterfaceStyle == .dark ? .dark : .light
         tintColor = .label
         streaming = state["streaming"] as? Bool ?? false
+        voicePreview = state["voicePreview"] as? Bool ?? false
+        editor.isHidden = voicePreview
+        voicePlaceholder.isHidden = !voicePreview
+        microphone.accessibilityLabel = voicePreview ? "返回文字输入" : "语音输入（暂未开放）"
+        microphone.accessibilityTraits = voicePreview ? [.button, .selected] : [.button]
+        if voicePreview { editor.resignFirstResponder() }
         if let icons = state["icons"] as? [String: String] {
             if let image = NativeArtwork.image(icons["send"]) { send.setImage(image, for: .normal) }
             if let image = NativeArtwork.image(icons["attach"]) { actions.setImage(image, for: .normal) }
+            if let image = NativeArtwork.image(icons["microphone"]) { microphone.setImage(image, for: .normal) }
         }
         send.accessibilityLabel = streaming ? "Stop response" : "Send message"
-        send.isEnabled = streaming || state["ready"] as? Bool == true
+        send.isEnabled = streaming || (!voicePreview && state["ready"] as? Bool == true)
         actions.accessibilityValue = state["menuOpen"] as? Bool == true ? "expanded" : "collapsed"
         let ack = state["ack"] as? Int ?? -1
         if ack >= revision, editor.markedTextRange == nil, let text = state["draft"] as? String, text != editor.text {
@@ -133,7 +157,7 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         guard editor.bounds.width > 0 else { return }
         let measured = editor.sizeThatFits(CGSize(width: editor.bounds.width, height: .greatestFiniteMagnitude)).height
         let textHeight = max(editor.font?.lineHeight ?? 18, measured - editor.textContainerInset.top - editor.textContainerInset.bottom)
-        let needed = textHeight + 20
+        let needed = voicePreview ? 44 : textHeight + 20
         let height = min(160, max(44, ceil(needed)))
         let inset = max(10, (height - textHeight) / 2)
         if abs(editor.textContainerInset.top - inset) > 0.1 {
@@ -162,6 +186,11 @@ final class NativeComposerView: UIView, UITextViewDelegate {
     }
     func textViewDidEndEditing(_ textView: UITextView) { emit("change") }
     @objc private func openActions() { emit("actions") }
+    @objc private func toggleMicrophone() {
+        editor.unmarkText()
+        editor.resignFirstResponder()
+        emit("microphone")
+    }
     @objc private func sendMessage() {
         editor.unmarkText()
         emit(streaming ? "stop" : "send")
