@@ -37,7 +37,8 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         placeholder.font = editor.font
         placeholder.textColor = .placeholderText
         placeholder.isUserInteractionEnabled = false
-        actions.setImage(UIImage(systemName: "plus"), for: .normal)
+        actions.tintColor = .label
+        send.tintColor = .label
         actions.accessibilityLabel = "Open input actions"
         actions.accessibilityIdentifier = "native-actions"
         actions.addTarget(self, action: #selector(openActions), for: .touchUpInside)
@@ -88,12 +89,15 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         }
         overrideUserInterfaceStyle = state["appearance"] as? String == "dark" ? .dark : .light
         let size = max(10, min(32, (state["fontSize"] as? CGFloat) ?? 14))
-        editor.font = NativeTypography.font(size: size)
+        if editor.font?.pointSize != size { editor.font = NativeTypography.font(size: size) }
         placeholder.font = editor.font
         editor.keyboardAppearance = overrideUserInterfaceStyle == .dark ? .dark : .light
         tintColor = .label
         streaming = state["streaming"] as? Bool ?? false
-        send.setImage(UIImage(systemName: streaming ? "stop.fill" : "arrow.up"), for: .normal)
+        if let icons = state["icons"] as? [String: String] {
+            if let image = NativeArtwork.image(icons["send"]) { send.setImage(image, for: .normal) }
+            if let image = NativeArtwork.image(icons["attach"]) { actions.setImage(image, for: .normal) }
+        }
         send.accessibilityLabel = streaming ? "Stop response" : "Send message"
         send.isEnabled = streaming || state["ready"] as? Bool == true
         actions.accessibilityValue = state["menuOpen"] as? Bool == true ? "expanded" : "collapsed"

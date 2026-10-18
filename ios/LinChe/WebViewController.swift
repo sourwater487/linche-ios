@@ -51,6 +51,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             configuration.userContentController.addUserScript(WKUserScript(source: """
                 if (location.hostname === '\(homeURL.host!)' && window === window.top) {
                     window.lincheNativeGlassVersion = 2;
+                    window.lincheNativePresentationVersion = 2;
                     window.lincheNativeComposerVersion = 2;
                 }
                 """, injectionTime: .atDocumentStart, forMainFrameOnly: true))

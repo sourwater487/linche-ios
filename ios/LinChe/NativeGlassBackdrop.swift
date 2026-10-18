@@ -62,7 +62,8 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         addSubview(inputGlass)
         latestGlass.isUserInteractionEnabled = true
         latestGlass.accessibilityIdentifier = "native-latest-glass"
-        latestButton.setImage(UIImage(systemName: "arrow.down"), for: .normal)
+        latestButton.setImage(NativeArtwork.latest, for: .normal)
+        latestButton.tintColor = .label
         latestButton.accessibilityIdentifier = "native-scroll-to-latest"
         latestButton.accessibilityLabel = "回到消息底部"
         latestButton.addTarget(self, action: #selector(returnToLatest), for: .touchUpInside)
@@ -153,7 +154,7 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         headerMask.frame = headerBlur.bounds
         // Keep the resting message clearance when the keyboard opens or the editor grows.
         table.contentInset.bottom = 36
-        if oldWidth != table.bounds.width { heights.removeAll(); table.reloadData() }
+        if oldWidth != table.bounds.width || (oldFrame != table.frame && rows.contains { $0.centered == true }) { heights.removeAll(); table.reloadData() }
         inputGlass.isHidden = composerFrame != nil
         inputGlass.frame = scaled(input)
         if inputGlass.effect == nil { inputGlass.effect = UIGlassEffect(style: .regular) }
@@ -183,6 +184,7 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         let follow = nearBottom
         changingLayout = true
         table.frame.size.height = bottom
+        if rows.contains(where: { $0.centered == true }) { table.reloadData() }
         latestGlass.frame.origin.y = bottom - 34
         table.layoutIfNeeded()
         if follow { scrollToBottom(animated: false) }
@@ -194,7 +196,7 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
     private var nearBottom: Bool { bottomOffset - table.contentOffset.y < 72 }
     private func scrollToBottom(animated: Bool) { table.setContentOffset(CGPoint(x: 0, y: bottomOffset), animated: animated) }
     @objc private func returnToLatest() { pendingJump = nil; scrollToBottom(animated: !UIAccessibility.isReduceMotionEnabled) }
-    private func updateLatest() { latestGlass.isHidden = rows.isEmpty || nearBottom }
+    private func updateLatest() { latestGlass.isHidden = rows.isEmpty || rows.allSatisfy { $0.centered == true } || nearBottom }
 
     private func commitRows() {
         guard pendingCommit else { return }
@@ -240,9 +242,9 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { rows.count }
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         let row = rows[indexPath.row]
-        if let height = heights[row.id] { return height }
+        if row.centered != true, let height = heights[row.id] { return height }
         guard #available(iOS 26.0, *) else { return 44 }
-        let height = renderer.row(row, width: tableView.bounds.width).bounds.height
+        let height = renderer.row(row, width: tableView.bounds.width, minimumHeight: max(0, tableView.bounds.height - tableView.contentInset.top - tableView.contentInset.bottom)).bounds.height
         heights[row.id] = height
         return height
     }
@@ -251,7 +253,7 @@ final class NativeGlassBackdrop: UIView, UITableViewDataSource, UITableViewDeleg
         cell.backgroundColor = .clear
         cell.selectionStyle = .none
         cell.contentView.subviews.forEach { $0.removeFromSuperview() }
-        if #available(iOS 26.0, *) { cell.contentView.addSubview(renderer.row(rows[indexPath.row], width: tableView.bounds.width)) }
+        if #available(iOS 26.0, *) { cell.contentView.addSubview(renderer.row(rows[indexPath.row], width: tableView.bounds.width, minimumHeight: max(0, tableView.bounds.height - tableView.contentInset.top - tableView.contentInset.bottom))) }
         return cell
     }
     func scrollViewDidScroll(_ scrollView: UIScrollView) {

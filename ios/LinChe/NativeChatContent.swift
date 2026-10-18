@@ -4,6 +4,7 @@ import ImageIO
 struct NativeChatRun: Decodable, Equatable {
     let text: String
     let size: Double?
+    let lineHeight: Double?
     let bold: Bool?
     let italic: Bool?
     let mono: Bool?
@@ -11,7 +12,18 @@ struct NativeChatRun: Decodable, Equatable {
     let color: [Double]?
     let action: String?
 }
+struct NativeBadgeGlyph: Decodable, Equatable { let text: String; let x: Double; let y: Double; let width: Double; let height: Double }
+struct NativeWaveBar: Decodable, Equatable { let height: Double; let color: [Double] }
 struct NativeChatNode: Decodable, Equatable {
+    let anchorKeys: [String]?
+    let anchor: String?
+    let spaceBefore: Double?
+    let glyphs: [NativeBadgeGlyph]?
+    let iconSource: String?
+    let iconSize: Double?
+    let title: String?
+    let fontSize: Double?
+    let bars: [NativeWaveBar]?
     let kind: String
     let runs: [NativeChatRun]?
     let children: [NativeChatNode]?
@@ -36,6 +48,7 @@ struct NativeChatRow: Decodable, Equatable {
     let outgoing: Bool
     let nodes: [NativeChatNode]
     let messageId: String?
+    let centered: Bool?
 }
 
 private final class NativeReactionTap: UITapGestureRecognizer {
@@ -47,6 +60,7 @@ private final class NativeReactionTap: UITapGestureRecognizer {
 @available(iOS 26.0, *)
 final class NativeChatRenderer: NSObject, UITextViewDelegate {
     var action: ((String, String, CGPoint) -> Void)?
+    private var anchors: [String: UIView] = [:]
     private let images = NSCache<NSString, UIImage>()
 
     override init() {
@@ -62,7 +76,8 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
                 return ceil(text.boundingRect(with: CGSize(width: limit, height: .greatestFiniteMagnitude),
                     options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NativeTypography.font(size: size)], context: nil).width) + 4
             }
-            if node.kind == "button" { return node.icon != nil ? 24 : min(limit, CGFloat((node.label ?? "").count) * 12 + 12) }
+            if node.kind == "button" { return min(limit, (node.icon != nil ? CGFloat(node.iconSize ?? 14) + 8 : 0) + CGFloat((node.title ?? node.label ?? "").count) * CGFloat(node.fontSize ?? 12) + 8) }
+            if node.kind == "waveform" { return min(limit, 170) }
             if node.kind == "image" { return min(limit, CGFloat(node.mediaWidth ?? 150)) }
             if let children = node.children {
                 if node.horizontal == true {
@@ -79,12 +94,42 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
         action?(id, kind, view.convert(CGPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil))
     }
 
-    func row(_ row: NativeChatRow, width: CGFloat) -> UIView {
+    func row(_ row: NativeChatRow, width: CGFloat, minimumHeight: CGFloat = 0) -> UIView {
+        anchors.removeAll()
         let content = group(row.nodes, width: max(1, width - 32), outgoing: row.outgoing)
         content.frame.origin = CGPoint(x: row.outgoing ? width - content.frame.width - 16 : 16, y: 8)
         let root = UIView(frame: CGRect(x: 0, y: 0, width: width, height: content.frame.maxY + 18))
+        if row.centered == true {
+            root.frame.size.height = max(root.frame.height, minimumHeight)
+            content.frame.origin.y = max(8, (root.bounds.height - content.bounds.height) / 2)
+        }
         root.accessibilityIdentifier = "native-message-\(row.messageId ?? row.id)"
         root.addSubview(content)
+        func addBadges(_ nodes: [NativeChatNode]) {
+            for node in nodes {
+                if node.kind == "badge", let key = node.anchor, let anchor = anchors[key] {
+                    let rect = anchor.convert(anchor.bounds, to: root)
+                    let width = min(root.bounds.width - 32, CGFloat(node.mediaWidth ?? 34))
+                    let height = CGFloat(node.mediaHeight ?? 42)
+                    let button = UIButton(type: .custom)
+                    let x = node.align == "left" ? rect.minX : rect.maxX - width
+                    button.frame = CGRect(x: max(16, min(root.bounds.width - width - 16, x)), y: max(0, rect.minY - height + 5), width: width, height: height)
+                    if let image = NativeArtwork.image(node.source, size: width, height: height) { button.setBackgroundImage(image, for: .normal) }
+                    button.accessibilityLabel = node.label
+                    for glyph in node.glyphs ?? [] {
+                        let label = UILabel(frame: CGRect(x: glyph.x, y: glyph.y, width: glyph.width, height: glyph.height))
+                        label.text = glyph.text; label.font = NativeTypography.font(size: 16); label.textColor = Self.color(node.color)
+                        label.textAlignment = .center; button.addSubview(label)
+                    }
+                    if let id = node.action { button.addAction(UIAction { [weak self, weak button] _ in
+                        guard let button else { return }; self?.emit(id, view: button)
+                    }, for: .touchUpInside) }
+                    root.addSubview(button)
+                }
+                addBadges(node.children ?? [])
+            }
+        }
+        addBadges(row.nodes)
         return root
     }
 
@@ -104,6 +149,7 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
             : horizontal && justify == "center" ? max(0, (width - occupied) / 2) : 0
         let maxHeight = views.map { $0.bounds.height }.max() ?? 0
         for view in views {
+            if !horizontal { cursor += CGFloat(view.tag) }
             view.frame.origin = horizontal ? CGPoint(x: cursor, y: (maxHeight - view.bounds.height) / 2)
                 : CGPoint(x: outgoing ? width - view.bounds.width : 0, y: cursor)
             root.addSubview(view)
@@ -114,7 +160,15 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
     }
 
     private func render(_ node: NativeChatNode, width: CGFloat, outgoing: Bool) -> UIView {
+        let view = renderContent(node, width: width, outgoing: outgoing)
+        for key in node.anchorKeys ?? [] { anchors[key] = view }
+        view.tag = Int(node.spaceBefore ?? 0)
+        return view
+    }
+
+    private func renderContent(_ node: NativeChatNode, width: CGFloat, outgoing: Bool) -> UIView {
         switch node.kind {
+        case "badge": return UIView()
         case "glass":
             let limit = max(1, width * 0.9 - 24)
             let glassWidth = min(width, max(64, min(limit, naturalWidth(node.children ?? [], limit: limit)) + 24))
@@ -139,24 +193,47 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
             return group(node.children ?? [], width: width, outgoing: outgoing, horizontal: node.horizontal == true, justify: node.justify, gap: CGFloat(node.gap ?? 8))
         case "button":
             let button = UIButton(type: .system)
-            if let icon = node.icon {
-                button.setImage(UIImage(systemName: icon, withConfiguration: UIImage.SymbolConfiguration(pointSize: 14)), for: .normal)
-            } else { button.setTitle(node.label ?? "打开", for: .normal) }
+            if let image = NativeArtwork.image(node.iconSource, size: CGFloat(node.iconSize ?? 14)) {
+                button.setImage(image, for: .normal)
+            }
+            button.setTitle(node.title ?? (node.icon == nil ? node.label : nil), for: .normal)
             button.tintColor = .label
             if let c = node.color, c.count >= 3 {
                 button.tintColor = UIColor(red: c[0] / 255, green: c[1] / 255, blue: c[2] / 255, alpha: c.count > 3 ? c[3] : 1)
             }
-            button.titleLabel?.font = NativeTypography.font(size: 12)
+            button.setTitleColor(button.tintColor, for: .normal)
+            button.titleLabel?.font = NativeTypography.font(size: CGFloat(node.fontSize ?? 12))
             button.titleLabel?.numberOfLines = 0
             button.isEnabled = node.disabled != true
             button.accessibilityLabel = node.label
             let size = button.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-            button.frame = CGRect(x: 0, y: 0, width: min(width, node.icon != nil ? 24 : max(24, size.width + 4)), height: max(24, size.height))
+            button.frame = CGRect(x: 0, y: 0, width: min(width, max(24, size.width + 4)), height: max(24, size.height))
             if let id = node.action {
                 button.addAction(UIAction { [weak self, weak button] _ in
                     guard let button else { return }; self?.emit(id, view: button)
                 }, for: .touchUpInside)
             }
+            return button
+        case "waveform":
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 0, y: 0, width: min(width, 170), height: 32)
+            button.accessibilityLabel = node.label
+            button.isEnabled = node.disabled != true
+            let label = UILabel(); label.text = node.title; label.font = NativeTypography.font(size: CGFloat(node.fontSize ?? 13))
+            label.textColor = Self.color(node.color)
+            label.frame = CGRect(x: max(0, button.bounds.width - 38), y: 0, width: 38, height: 32)
+            label.textAlignment = .right; button.addSubview(label)
+            let bars = node.bars ?? []
+            let step = max(1, (button.bounds.width - 46) / CGFloat(max(1, bars.count)))
+            for (index, bar) in bars.enumerated() {
+                let height = max(2, min(21, CGFloat(bar.height) * 21))
+                let view = UIView(frame: CGRect(x: CGFloat(index) * step, y: (32 - height) / 2, width: max(1, step - 2), height: height))
+                view.backgroundColor = Self.color(bar.color); view.layer.cornerRadius = 1
+                view.isUserInteractionEnabled = false; button.addSubview(view)
+            }
+            if let id = node.action { button.addAction(UIAction { [weak self, weak button] _ in
+                guard let button else { return }; self?.emit(id, view: button)
+            }, for: .touchUpInside) }
             return button
         case "image":
             let imageView = UIImageView()
@@ -168,15 +245,35 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
             if let cached = images.object(forKey: source as NSString) { imageView.image = cached }
             else if source.hasPrefix("data:image/"), let separator = source.firstIndex(of: ","),
                     let data = Data(base64Encoded: String(source[source.index(after: separator)...])),
-                    let sourceImage = CGImageSourceCreateWithData(data as CFData, nil),
-                    let thumbnail = CGImageSourceCreateThumbnailAtIndex(sourceImage, 0, [
+                    let sourceImage = CGImageSourceCreateWithData(data as CFData, nil) {
+                let count = CGImageSourceGetCount(sourceImage)
+                // Keep animated stickers moving. Bound decoded pixels, not the
+                // number of animation frames, so long GIFs retain their content.
+                let pixelSize = count > 1 ? min(450, max(64, Int(sqrt(8_000_000.0 / Double(count))))) : 900
+                var frames: [UIImage] = []
+                var delays: [Int] = []
+                var cost = 0
+                for index in 0..<count {
+                    guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(sourceImage, index, [
                         kCGImageSourceCreateThumbnailFromImageAlways: true,
                         kCGImageSourceCreateThumbnailWithTransform: true,
-                        kCGImageSourceThumbnailMaxPixelSize: 900
-                    ] as CFDictionary) {
-                let image = UIImage(cgImage: thumbnail)
-                images.setObject(image, forKey: source as NSString, cost: thumbnail.bytesPerRow * thumbnail.height)
-                imageView.image = image
+                        kCGImageSourceThumbnailMaxPixelSize: pixelSize
+                    ] as CFDictionary) else { continue }
+                    frames.append(UIImage(cgImage: thumbnail)); cost += thumbnail.bytesPerRow * thumbnail.height
+                    let properties = CGImageSourceCopyPropertiesAtIndex(sourceImage, index, nil) as? [CFString: Any]
+                    let gif = properties?[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+                    let delay = (gif?[kCGImagePropertyGIFUnclampedDelayTime] as? Double)
+                        ?? (gif?[kCGImagePropertyGIFDelayTime] as? Double) ?? 0.1
+                    delays.append(max(2, Int((delay * 100).rounded())))
+                }
+                if let first = frames.first {
+                    func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
+                    let quantum = max(2, delays.reduce(delays.first ?? 10) { gcd($0, $1) })
+                    let animation = zip(frames, delays).flatMap { frame, delay in Array(repeating: frame, count: max(1, delay / quantum)) }
+                    let image = frames.count > 1 ? UIImage.animatedImage(with: animation, duration: Double(delays.reduce(0, +)) / 100) ?? first : first
+                    images.setObject(image, forKey: source as NSString, cost: cost)
+                    imageView.image = image
+                }
             }
             let aspect = max(0.1, min(20, node.aspect ?? 1))
             let w = min(width, CGFloat(node.mediaWidth ?? (node.avatar == true ? 50 : 260)))
@@ -203,9 +300,11 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
             text.textContainerInset = .zero
             text.textContainer.lineFragmentPadding = 0
             text.delegate = self
+            text.tintColor = .label
+            text.linkTextAttributes = [:] // Preserve each run's CSS link color, not UIKit blue.
             let result = NSMutableAttributedString(string: "")
             for run in node.runs ?? [] {
-                let size = CGFloat(max(10, min(24, run.size ?? 14)))
+                let size = CGFloat(max(10, min(64, run.size ?? 14)))
                 var font = run.mono == true ? UIFont.monospacedSystemFont(ofSize: size, weight: run.bold == true ? .semibold : .regular)
                     : NativeTypography.font(size: size, bold: run.bold == true)
                 if run.italic == true, let descriptor = font.fontDescriptor.withSymbolicTraits([font.fontDescriptor.symbolicTraits, .traitItalic]) {
@@ -216,7 +315,7 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
                     color = UIColor(red: c[0] / 255, green: c[1] / 255, blue: c[2] / 255, alpha: c.count > 3 ? c[3] : 1)
                 }
                 let paragraph = NSMutableParagraphStyle()
-                paragraph.lineSpacing = 4
+                paragraph.lineSpacing = max(0, CGFloat(run.lineHeight ?? Double(font.lineHeight + 4)) - font.lineHeight)
                 paragraph.alignment = node.align == "center" ? .center : ["right", "end"].contains(node.align ?? "") ? .right : .left
                 var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: paragraph]
                 if run.strike == true { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
@@ -229,6 +328,11 @@ final class NativeChatRenderer: NSObject, UITextViewDelegate {
             text.accessibilityIdentifier = "native-message-text"
             return text
         }
+    }
+
+    private static func color(_ values: [Double]?) -> UIColor {
+        guard let c = values, c.count >= 3 else { return .label }
+        return UIColor(red: c[0] / 255, green: c[1] / 255, blue: c[2] / 255, alpha: c.count > 3 ? c[3] : 1)
     }
 
     @objc private func reaction(_ recognizer: NativeReactionTap) {
