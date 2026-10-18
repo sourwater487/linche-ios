@@ -1,0 +1,82 @@
+{
+  "name": "LinChe",
+  "options": {
+    "bundleIdPrefix": "com.linche",
+    "deploymentTarget": {
+      "iOS": "16.0"
+    }
+  },
+  "settings": {
+    "base": {
+      "SWIFT_VERSION": "5.0",
+      "MARKETING_VERSION": "1.3.0",
+      "CURRENT_PROJECT_VERSION": "1",
+      "CODE_SIGNING_ALLOWED": "NO",
+      "TARGETED_DEVICE_FAMILY": "1,2"
+    }
+  },
+  "targets": {
+    "LinChe": {
+      "type": "application",
+      "platform": "iOS",
+      "sources": [
+        "LinChe"
+      ],
+      "settings": {
+        "base": {
+          "PRODUCT_BUNDLE_IDENTIFIER": "com.linche.privateapp",
+          "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon"
+        }
+      },
+      "info": {
+        "path": "Generated/Info.plist",
+        "properties": {
+          "CFBundleDisplayName": "Lin & Che",
+          "NSFaceIDUsageDescription": "验证身份，保护设备配对和每 30 天一次的登录续期。",
+          "LSRequiresIPhoneOS": true,
+          "UILaunchScreen": {
+            "UIColorName": "LaunchBackground"
+          },
+          "UIApplicationSceneManifest": {
+            "UIApplicationSupportsMultipleScenes": false,
+            "UISceneConfigurations": {
+              "UIWindowSceneSessionRoleApplication": [
+                {
+                  "UISceneConfigurationName": "Default Configuration",
+                  "UISceneDelegateClassName": "$(PRODUCT_MODULE_NAME).SceneDelegate"
+                }
+              ]
+            }
+          },
+          "UISupportedInterfaceOrientations": [
+            "UIInterfaceOrientationPortrait"
+          ],
+          "UISupportedInterfaceOrientations~ipad": [
+            "UIInterfaceOrientationPortrait",
+            "UIInterfaceOrientationPortraitUpsideDown",
+            "UIInterfaceOrientationLandscapeLeft",
+            "UIInterfaceOrientationLandscapeRight"
+          ],
+          "NSCameraUsageDescription": "拍摄照片并作为聊天附件上传。",
+          "NSMicrophoneUsageDescription": "录制语音或带声音的视频附件。",
+          "NSPhotoLibraryUsageDescription": "选择照片作为聊天附件或背景。",
+          "NSPhotoLibraryAddUsageDescription": "将选择的图片保存到照片图库。",
+          "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+          "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
+          "NSAppTransportSecurity": {
+            "NSAllowsLocalNetworking": true
+          }
+        }
+      }
+    }
+  },
+  "schemes": {
+    "LinChe": {
+      "build": {
+        "targets": {
+          "LinChe": "all"
+        }
+      }
+    }
+  }
+}

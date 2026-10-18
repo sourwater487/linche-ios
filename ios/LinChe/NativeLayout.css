@@ -1,0 +1,146 @@
+/* IPA only. Backgrounds remain full-screen; inset controls/content separately.
+   Native safe-top also covers themes that previously omitted viewport-fit. */
+html[data-linche-client="ios"] .garden-return-line {
+  top: 0;
+  padding-top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 8px);
+}
+
+html[data-linche-client="ios"] .garden-page .garden-appearance-toggle {
+  top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 8px);
+}
+
+html[data-linche-client="ios"] .reverie-page .undertow-return-line {
+  top: 0;
+}
+
+html[data-linche-client="ios"] .undertow-content {
+  padding-top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 8px);
+}
+
+html[data-linche-client="ios"] .placeholder-menu {
+  top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 8px);
+}
+
+html[data-linche-client="ios"] .api-page .api-content {
+  padding-top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 76px);
+}
+
+html[data-linche-client="ios"] .diary-shell {
+  padding-top: var(--linche-safe-top, env(safe-area-inset-top));
+}
+
+html[data-linche-client="ios"] .ombre-page {
+  padding-top: 0;
+}
+
+/* The same-origin Ombre frame also receives this stylesheet. */
+html[data-linche-client="ios"] .book-masthead {
+  padding-top: max(env(safe-area-inset-top), var(--host-safe-top, 0px));
+}
+
+/* Use the layout container, not WebKit's keyboard-adjusted fixed-position
+   viewport, for both the chat frame and its oversized wallpaper. The frame
+   clips the unchanged image; it must never anchor the image to its new bottom. */
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page {
+  position: absolute;
+  overflow: hidden;
+}
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page::before {
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  height: var(--linche-background-height, 100lvh);
+}
+
+/* Separate blur radii fade at different heights: strong at the status bar,
+   progressively clearer through the buttons, then transparent below them. */
+.linche-header-blur { display: none; }
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page .chat-topbar::before {
+  content: none;
+}
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .linche-header-blur {
+  display: block;
+  position: absolute;
+  inset: 0 0 -24px;
+  z-index: -1;
+  pointer-events: none;
+}
+.linche-header-blur > span {
+  position: absolute;
+  inset: 0;
+  -webkit-backdrop-filter: blur(var(--header-blur));
+  backdrop-filter: blur(var(--header-blur));
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent var(--header-fade));
+  mask-image: linear-gradient(to bottom, #000 0%, transparent var(--header-fade));
+}
+.linche-header-blur > span:nth-child(1) { --header-blur: 1px; --header-fade: 100%; }
+.linche-header-blur > span:nth-child(2) { --header-blur: 3px; --header-fade: 90%; }
+.linche-header-blur > span:nth-child(3) { --header-blur: 6px; --header-fade: 76%; }
+.linche-header-blur > span:nth-child(4) { --header-blur: 12px; --header-fade: 60%; }
+.linche-header-blur > span:nth-child(5) { --header-blur: 24px; --header-fade: 44%; }
+
+html[data-linche-client="ios"] .keepsakes-page {
+  padding-top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 8px);
+}
+
+/* Backgrounds keep filling the header, including the status-bar region. */
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="default"] .chat-page .chat-main {
+  grid-template-rows: calc(58px + var(--linche-safe-top, env(safe-area-inset-top))) minmax(0, 1fr);
+}
+
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="default"] .chat-page .chat-main::before {
+  top: calc(58px + var(--linche-safe-top, env(safe-area-inset-top)));
+}
+
+html[data-linche-client="ios"].chat-route-active .chat-page .chat-topbar {
+  min-height: calc(58px + var(--linche-safe-top, env(safe-area-inset-top)));
+  padding-top: var(--linche-safe-top, env(safe-area-inset-top));
+}
+
+html[data-linche-client="ios"] .chat-page .files-main {
+  grid-template-rows: calc(58px + var(--linche-safe-top, env(safe-area-inset-top))) minmax(0, 1fr);
+}
+
+html[data-linche-client="ios"] .chat-page .files-topbar {
+  padding-top: var(--linche-safe-top, env(safe-area-inset-top));
+}
+
+html[data-linche-client="ios"] .chat-page .chat-sidebar .sidebar-fixed {
+  padding-top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 12px);
+}
+
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page .messages-area {
+  padding-top: calc(var(--linche-safe-top, env(safe-area-inset-top)) + 80px);
+}
+
+/* The native web surface stays full-screen behind every keyboard. Only Chat's
+   message/composer column consumes the unobscured height; wallpaper never does. */
+html[data-linche-client="ios"].chat-route-active[data-visual-theme] .chat-page {
+  position: absolute;
+  inset: 0;
+  height: var(--linche-background-height, 100lvh);
+}
+html[data-linche-client="ios"].chat-route-active[data-visual-theme] .chat-page .chat-main {
+  height: var(--linche-content-height, 100%);
+  min-height: 0;
+}
+html[data-linche-client="ios"] .diary-dialog {
+  scroll-padding-bottom: var(--linche-keyboard-height, 0px);
+  padding-bottom: var(--linche-keyboard-height, 0px);
+}
+
+/* Use compact clearance only while typing; the resting theme keeps its
+   original whitespace. Native keyboard geometry is applied without animation. */
+html[data-linche-client="ios"][data-visual-theme="liquid-glass"] .chat-page .chat-composer {
+  bottom: var(--linche-composer-bottom, max(10px, env(safe-area-inset-bottom)));
+}
+html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page .messages-area {
+  padding-bottom: var(--linche-message-padding, calc(176px + env(safe-area-inset-bottom)));
+  overflow-anchor: none;
+}
+
+@media (max-width: 767px) {
+  html[data-linche-client="ios"].chat-route-active[data-visual-theme="liquid-glass"] .chat-page .messages-area {
+    padding-bottom: var(--linche-message-padding, calc(158px + env(safe-area-inset-bottom)));
+  }
+}

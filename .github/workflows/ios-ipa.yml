@@ -1,0 +1,47 @@
+name: Build encrypted iOS IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Select Xcode and prepare build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          if ! command -v gpg >/dev/null; then brew install gnupg; fi
+          xcodegen --version
+          gpg --version
+      - name: Build and validate unsigned device IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LINCHE_BUILD_NUMBER="$((1000 + GITHUB_RUN_NUMBER))"
+          bash ios/scripts/build-ipa.sh
+      - name: Encrypt installation artifact
+        run: bash ios/scripts/encrypt-ipa.sh
+      - name: Upload encrypted IPA only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: LinChe-iOS-encrypted-${{ github.run_number }}
+          path: ios/build/LinChe-unsigned.ipa.gpg
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
