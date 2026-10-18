@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FPS = 30
-COLORS = ['#85817b', '#d67557', '#1f1a17', '#efa7ad', '#f3d98a', '#92ae8a', '#dd5b58', '#aaa7a0', '#edac86']
+COLORS = ['#85817b', '#d67557', '#1f1a17', '#c7b5ba', '#cec6ae', '#b5bfaf', '#dd5b58', '#aaa7a0', '#edac86']
 
 
 def ease(t):
@@ -24,34 +24,34 @@ def rect(frame, x, y, w, h, color, alpha=1, angle=0):
         frame.append([round(v, 2) for v in [x, y, w, h, angle, color, alpha]])
 
 
-def sprite(frame, x=0, y=-20, sx=1, sy=1, angle=0, pose='walk'):
+def sprite(frame, x=0, y=-20, sx=1, sy=1, angle=0, pose='walk', hand_lift=None):
     # Original Clawd: 5 pt pixels, 9 x 6 body, 11 x 8 overall silhouette.
     # Expressions change inside that body; they must not widen/flatten it.
     blocks = [(1, 0, 9, 6, 1)]
-    if pose == 'happy':
-        blocks += [(0, -2, 1, 5, 1), (10, -2, 1, 5, 1)]
-    elif pose == 'scared':
-        blocks += [(0, -1, 1, 4, 1), (10, -1, 1, 4, 1)]
-    else:
-        blocks += [(0, 2, 1, 2, 1), (10, 2, 1, 2, 1)]
     for foot in [1, 3, 7, 9]:
         blocks.append((foot, 6, 1, 2, 1))
     if pose == 'happy':
         for eye in [2, 7]:
             blocks += [(eye, 2.5, .5, .5, 2), (eye + .5, 2, .5, .5, 2), (eye + 1, 2.5, .5, .5, 2)]
-        blocks += [(4, 4, .5, .5, 2), (4.5, 4.5, 2, .5, 2), (6.5, 4, .5, .5, 2)]
     elif pose == 'hurt':
         for eye in [2, 7]:
             blocks += [(eye, 2, .5, .5, 2), (eye + 1, 2, .5, .5, 2), (eye + .5, 2.5, .5, .5, 2), (eye, 3, .5, .5, 2), (eye + 1, 3, .5, .5, 2)]
-        blocks += [(5, 4.5, 1, .5, 2)]
     else:
         blocks += [(2, 2, 1, 1, 2), (8, 2, 1, 1, 2)]
-        if pose == 'scared':
-            blocks += [(5, 4, 1, 1, 2)]
     rad = math.radians(angle)
     for bx, by, bw, bh, color in blocks:
         dx, dy = (bx + bw / 2 - 5.5) * 5 * sx, (by + bh / 2 - 4) * 5 * sy
         rect(frame, x + dx * math.cos(rad) - dy * math.sin(rad), y + dx * math.sin(rad) + dy * math.cos(rad), bw * 5 * sx, bh * 5 * sy, color, angle=angle)
+    # Rotate the original 1 x 2 side blocks about their attachment points.
+    # Raising a hand never changes its dimensions or grows an arm.
+    lift = (1 if pose in ('happy', 'scared') else 0) if hand_lift is None else hand_lift
+    for side, pivot in [(-1, 1), (1, 10)]:
+        turn = -side * 110 * lift
+        hand_rad = math.radians(turn)
+        hx = pivot + side * .5 * math.cos(hand_rad) - math.sin(hand_rad)
+        hy = 2 + side * .5 * math.sin(hand_rad) + math.cos(hand_rad)
+        dx, dy = (hx - 5.5) * 5 * sx, (hy - 4) * 5 * sy
+        rect(frame, x + dx * math.cos(rad) - dy * math.sin(rad), y + dx * math.sin(rad) + dy * math.cos(rad), 5 * sx, 10 * sy, 1, angle=angle + turn)
 
 
 def stairs(frame, phase=0, camera=0, future=1):
@@ -68,9 +68,9 @@ def stairs(frame, phase=0, camera=0, future=1):
 
 
 def flower(frame, x, y, color, alpha):
-    for dx, dy in [(0, -4), (-4, 0), (4, 0), (0, 4)]:
-        rect(frame, x + dx, y + dy, 4, 4, color, alpha)
-    rect(frame, x, y, 4, 4, 4, alpha)
+    for dx, dy in [(0, -2), (-2, 0), (2, 0), (0, 2)]:
+        rect(frame, x + dx, y + dy, 2, 2, color, alpha)
+    rect(frame, x, y, 2, 2, 4, alpha)
 
 
 def cross(frame, x, y, alpha):
@@ -107,7 +107,7 @@ def success(t, reduced=False):
         hop, squash = math.sin(u * math.pi) * 38, 1 + .06 * math.sin(u * math.pi)
     else:
         hop, squash = 0, 1 - .18 * math.sin(min(1, (t - .78) / .25) * math.pi)
-    sprite(frame, y=-20 * squash - hop, sx=2 - squash, sy=squash, pose='happy' if t >= .12 else 'walk')
+    sprite(frame, y=-20 * squash - hop, sx=2 - squash, sy=squash, pose='happy' if t >= .12 else 'walk', hand_lift=ease((t - .10) / .24))
     burst = ease((t - .16) / .48)
     for i, (dx, dy) in enumerate([(-54, -40), (52, -38), (-32, -84), (30, -90), (-66, -70), (64, -72)]):
         alpha = min(1, max(0, (t - .16 - i * .025) / .15)) * (1 - .4 * ease((t - 1) / .3))
