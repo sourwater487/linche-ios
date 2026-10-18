@@ -21,6 +21,8 @@ final class EntryViewController: UIViewController {
     private var expiryTimer: Timer?
     private var inFlight = false
     private var loadedToken: String?
+    private var panelCenter: NSLayoutConstraint!
+    private var failurePanelTop: NSLayoutConstraint!
     private enum Action { case pair, renew, retry }
     private var action: Action = .retry
 
@@ -58,6 +60,9 @@ final class EntryViewController: UIViewController {
         view.addSubview(panel)
         let center = panel.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
         center.priority = .defaultHigh
+        panelCenter = center
+        failurePanelTop = panel.topAnchor.constraint(equalTo: view.centerYAnchor, constant: 120)
+        failurePanelTop.priority = .defaultHigh
         let width = panel.widthAnchor.constraint(equalToConstant: 340)
         width.priority = .defaultHigh
         NSLayoutConstraint.activate([
@@ -82,6 +87,9 @@ final class EntryViewController: UIViewController {
 
     private func showAuthenticationPanel() {
         launchSpinner.stopAnimating()
+        failurePanelTop.isActive = false
+        panelCenter.isActive = true
+        titleLabel.isHidden = false
         web?.view.isHidden = true
         panel.isHidden = false
     }
@@ -141,20 +149,39 @@ final class EntryViewController: UIViewController {
         primary.isEnabled = false
         repair.isEnabled = false
         spinner.startAnimating()
-        if web == nil && panel.isHidden { launchSpinner.startAnimating() }
+        if launchSpinner.isShowingFailure {
+            panel.isHidden = true
+            failurePanelTop.isActive = false
+            panelCenter.isActive = true
+            launchSpinner.startAnimating()
+        } else if web == nil && panel.isHidden { launchSpinner.startAnimating() }
         Task {
             defer {
                 inFlight = false
                 primary.isEnabled = true
                 repair.isEnabled = true
                 spinner.stopAnimating()
-                launchSpinner.stopAnimating()
+                if !launchSpinner.isShowingFailure { launchSpinner.stopAnimating() }
             }
             do { try await operation() }
             catch {
                 let cancelled = (error as? LAError)?.code == .userCancel || (error as? LAError)?.code == .systemCancel
                 let text = cancelled ? "已取消验证。准备好后可以重试。" : error.localizedDescription
-                show(action, text)
+                if !cancelled && !launchSpinner.isHidden {
+                    action = .retry
+                    message.text = text
+                    titleLabel.isHidden = true
+                    code.isHidden = true
+                    repair.isHidden = true
+                    primary.isHidden = false
+                    primary.setTitle("重新连接", for: .normal)
+                    panelCenter.isActive = false
+                    failurePanelTop.isActive = true
+                    panel.isHidden = false
+                    launchSpinner.fail()
+                } else {
+                    show(action, text)
+                }
             }
         }
     }

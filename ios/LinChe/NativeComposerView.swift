@@ -22,13 +22,13 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         super.init(frame: frame)
         accessibilityIdentifier = "native-chat-composer"
         let material = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
-        material.cornerConfiguration = .corners(radius: .fixed(24))
+        material.cornerConfiguration = .corners(radius: .fixed(22))
         material.translatesAutoresizingMaskIntoConstraints = false
         addSubview(material)
         editor.backgroundColor = .clear
         editor.textColor = .label
         editor.font = NativeTypography.font(size: 14)
-        editor.textContainerInset = UIEdgeInsets(top: 13, left: 0, bottom: 13, right: 0)
+        editor.textContainerInset = UIEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
         editor.textContainer.lineFragmentPadding = 0
         editor.delegate = self
         editor.accessibilityIdentifier = "native-chat-input"
@@ -51,14 +51,14 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         }
         placeholder.translatesAutoresizingMaskIntoConstraints = false
         editor.addSubview(placeholder)
-        heightConstraint = heightAnchor.constraint(equalToConstant: 48)
-        placeholderTop = placeholder.topAnchor.constraint(equalTo: editor.topAnchor, constant: 13)
+        heightConstraint = heightAnchor.constraint(equalToConstant: 44)
+        placeholderTop = placeholder.topAnchor.constraint(equalTo: editor.topAnchor, constant: 10)
         NSLayoutConstraint.activate([
             material.leadingAnchor.constraint(equalTo: leadingAnchor), material.trailingAnchor.constraint(equalTo: trailingAnchor),
             material.topAnchor.constraint(equalTo: topAnchor), material.bottomAnchor.constraint(equalTo: bottomAnchor),
-            actions.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4), actions.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            actions.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4), actions.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
             actions.widthAnchor.constraint(equalToConstant: 44), actions.heightAnchor.constraint(equalToConstant: 44),
-            send.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4), send.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            send.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4), send.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
             send.widthAnchor.constraint(equalToConstant: 44), send.heightAnchor.constraint(equalToConstant: 44),
             editor.leadingAnchor.constraint(equalTo: actions.trailingAnchor, constant: 2), editor.trailingAnchor.constraint(equalTo: send.leadingAnchor, constant: -2),
             editor.topAnchor.constraint(equalTo: topAnchor), editor.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -133,9 +133,9 @@ final class NativeComposerView: UIView, UITextViewDelegate {
         guard editor.bounds.width > 0 else { return }
         let measured = editor.sizeThatFits(CGSize(width: editor.bounds.width, height: .greatestFiniteMagnitude)).height
         let textHeight = max(editor.font?.lineHeight ?? 18, measured - editor.textContainerInset.top - editor.textContainerInset.bottom)
-        let needed = textHeight + 26
-        let height = min(160, max(48, ceil(needed)))
-        let inset = max(13, (height - textHeight) / 2)
+        let needed = textHeight + 20
+        let height = min(160, max(44, ceil(needed)))
+        let inset = max(10, (height - textHeight) / 2)
         if abs(editor.textContainerInset.top - inset) > 0.1 {
             editor.textContainerInset = UIEdgeInsets(top: inset, left: 0, bottom: inset, right: 0)
         }

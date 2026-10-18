@@ -343,13 +343,16 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         errorPanel.translatesAutoresizingMaskIntoConstraints = false
         errorPanel.isHidden = true
         view.addSubview(errorPanel)
+        let errorTop = errorPanel.topAnchor.constraint(equalTo: view.centerYAnchor, constant: 120)
+        errorTop.priority = .defaultHigh
         NSLayoutConstraint.activate([
             loading.topAnchor.constraint(equalTo: view.topAnchor),
             loading.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             loading.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             loading.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             errorPanel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            errorPanel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            errorTop,
+            errorPanel.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
             errorPanel.widthAnchor.constraint(lessThanOrEqualToConstant: 360),
             errorPanel.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 24),
             errorPanel.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -24)
@@ -433,7 +436,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private func showFailure(_ message: String) {
         if #available(iOS 26.0, *) { nativeComposer?.reset(); nativeComposer?.isHidden = true; composerLayoutKey = "" }
         resetNativeGlass()
-        loading.stopAnimating()
+        loading.fail()
         errorLabel.text = message
         errorPanel.isHidden = false
     }

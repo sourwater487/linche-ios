@@ -2,6 +2,8 @@
 """Reject simulator packages, missing executables, and accidentally bundled secrets."""
 import plistlib
 import hashlib
+import json
+import math
 from pathlib import PurePosixPath
 import struct
 import sys
@@ -19,6 +21,16 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     magic, cpu = struct.unpack_from('<II', executable)
     assert magic == 0xFEEDFACF and cpu == 0x0100000C, 'Expected arm64 Mach-O executable'
     assert any(name.endswith('/Assets.car') for name in names), 'Missing app icons'
+    animation = json.loads(archive.read('Payload/LinChe.app/ClawdAnimation.json'))
+    assert animation['fps'] == 30, 'Unexpected animation frame rate'
+    for clip in ('walk', 'success', 'failure', 'reducedWalk', 'reducedSuccess', 'reducedFailure'):
+        frames = animation['clips'][clip]
+        assert frames, 'Empty animation clip'
+        for frame in frames:
+            for block in frame:
+                assert len(block) == 7 and all(math.isfinite(v) for v in block), 'Invalid animation block'
+                assert block[2] > 0 and block[3] > 0 and 0 <= block[6] <= 1, 'Invalid animation geometry'
+                assert int(block[5]) == block[5] and 0 <= block[5] < len(animation['colors']), 'Invalid animation palette'
     for name in names:
         parts = PurePosixPath(name).parts
         assert '..' not in parts and not name.startswith('/'), 'Unsafe archive path'
