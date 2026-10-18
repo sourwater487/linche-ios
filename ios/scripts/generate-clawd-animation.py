@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FPS = 30
-COLORS = ['#85817b', '#d67957', '#302621', '#efa7ad', '#f3d98a', '#92ae8a', '#dd5b58', '#aaa7a0', '#edac86']
+COLORS = ['#85817b', '#d67557', '#1f1a17', '#efa7ad', '#f3d98a', '#92ae8a', '#dd5b58', '#aaa7a0', '#edac86']
 
 
 def ease(t):
@@ -24,46 +24,47 @@ def rect(frame, x, y, w, h, color, alpha=1, angle=0):
         frame.append([round(v, 2) for v in [x, y, w, h, angle, color, alpha]])
 
 
-def sprite(frame, x=0, y=-20, sx=1, sy=1, angle=0, pose='walk', gait=0):
-    blocks = [(2, 1, 12, 7, 1)]
+def sprite(frame, x=0, y=-20, sx=1, sy=1, angle=0, pose='walk'):
+    # Original Clawd: 5 pt pixels, 9 x 6 body, 11 x 8 overall silhouette.
+    # Expressions change inside that body; they must not widen/flatten it.
+    blocks = [(1, 0, 9, 6, 1)]
     if pose == 'happy':
-        blocks += [(0, -1, 1, 4, 1), (1, 2, 1, 2, 1), (15, -1, 1, 4, 1), (14, 2, 1, 2, 1)]
+        blocks += [(0, -2, 1, 5, 1), (10, -2, 1, 5, 1)]
     elif pose == 'scared':
-        blocks += [(0, 0, 1, 4, 1), (1, 3, 1, 1, 1), (15, 0, 1, 4, 1), (14, 3, 1, 1, 1)]
+        blocks += [(0, -1, 1, 4, 1), (10, -1, 1, 4, 1)]
     else:
-        blocks += [(0, 3, 2, 2, 1), (14, 3, 2, 2, 1)]
-    for index, foot in enumerate([3, 5, 10, 12]):
-        lift = .7 * math.sin(gait + index * math.pi) if pose == 'walk' else 0
-        blocks.append((foot, 8, 1, max(1, 2 - max(0, lift)), 1))
+        blocks += [(0, 2, 1, 2, 1), (10, 2, 1, 2, 1)]
+    for foot in [1, 3, 7, 9]:
+        blocks.append((foot, 6, 1, 2, 1))
     if pose == 'happy':
-        for eye in [3, 9]:
-            blocks += [(eye, 3, 1, 1, 2), (eye + 1, 2, 1, 1, 2), (eye + 2, 3, 1, 1, 2)]
-        blocks += [(6, 5, 1, 1, 2), (7, 6, 2, 1, 2), (9, 5, 1, 1, 2)]
+        for eye in [2, 7]:
+            blocks += [(eye, 2.5, .5, .5, 2), (eye + .5, 2, .5, .5, 2), (eye + 1, 2.5, .5, .5, 2)]
+        blocks += [(4, 4, .5, .5, 2), (4.5, 4.5, 2, .5, 2), (6.5, 4, .5, .5, 2)]
     elif pose == 'hurt':
-        for eye in [3, 9]:
-            blocks += [(eye, 3, 1, 1, 2), (eye + 2, 3, 1, 1, 2), (eye + 1, 4, 1, 1, 2), (eye, 5, 1, 1, 2), (eye + 2, 5, 1, 1, 2)]
-        blocks += [(7, 6, 2, 1, 2)]
+        for eye in [2, 7]:
+            blocks += [(eye, 2, .5, .5, 2), (eye + 1, 2, .5, .5, 2), (eye + .5, 2.5, .5, .5, 2), (eye, 3, .5, .5, 2), (eye + 1, 3, .5, .5, 2)]
+        blocks += [(5, 4.5, 1, .5, 2)]
     else:
-        blocks += [(4, 3, 1, 2, 2), (10, 3, 1, 2, 2)]
+        blocks += [(2, 2, 1, 1, 2), (8, 2, 1, 1, 2)]
         if pose == 'scared':
-            blocks += [(7, 5, 2, 2, 2)]
+            blocks += [(5, 4, 1, 1, 2)]
     rad = math.radians(angle)
     for bx, by, bw, bh, color in blocks:
-        dx, dy = (bx + bw / 2 - 8) * 4 * sx, (by + bh / 2 - 5) * 4 * sy
-        rect(frame, x + dx * math.cos(rad) - dy * math.sin(rad), y + dx * math.sin(rad) + dy * math.cos(rad), bw * 4 * sx, bh * 4 * sy, color, angle=angle)
+        dx, dy = (bx + bw / 2 - 5.5) * 5 * sx, (by + bh / 2 - 4) * 5 * sy
+        rect(frame, x + dx * math.cos(rad) - dy * math.sin(rad), y + dx * math.sin(rad) + dy * math.cos(rad), bw * 5 * sx, bh * 5 * sy, color, angle=angle)
 
 
 def stairs(frame, phase=0, camera=0, future=1):
-    # Treads and risers meet along an edge: translucent rectangles never overlap.
-    for index in range(-4, 5):
+    # Restore the separate original ┐ ledges, not a connected staircase.
+    # Snap both segments to the same pixel edge, with no shared filled area.
+    for index in range(-3, 5):
         pos = index - phase
-        x, y = pos * 66 - 33 - camera, -pos * 24
-        alpha = .30 * min(1, max(0, (pos + 4) / 2)) * min(1, max(0, (5 - pos) / 2))
+        x, y = round(pos * 66 - 29 - camera), round(-pos * 24)
+        alpha = .27 * min(1, max(0, (pos + 3) / 2)) * min(1, max(0, (4 - pos) / 2))
         if index > 0:
             alpha *= future
-        rect(frame, x + 33, y + 1.5, 66, 3, 0, alpha)
-        # Remove the upward riser too when the terminal step is revealed.
-        rect(frame, x + 64.5, y - 12, 3, 24, 0, alpha * (future if index == 0 else 1))
+        rect(frame, x + 29, y + 1.5, 58, 3, 0, alpha)
+        rect(frame, x + 56.5, y + 9, 3, 12, 0, alpha)
 
 
 def flower(frame, x, y, color, alpha):
@@ -81,8 +82,12 @@ def walk(t):
     frame = []
     phase = t / .6
     stairs(frame, phase)
-    squash = 1 - .15 * max(0, math.cos(phase * math.tau))
-    sprite(frame, y=-20 * squash - math.sin(phase * math.pi) * 26, sx=2 - squash, sy=squash, gait=phase * math.tau)
+    squash = 1
+    if phase < .12:
+        squash = .80 + phase / .12 * .20
+    if phase > .84:
+        squash = 1 - math.sin((phase - .84) / .16 * math.pi) * .22
+    sprite(frame, y=-20 * squash - math.sin(phase * math.pi) * 25, sx=2 - squash, sy=squash)
     return frame
 
 
@@ -114,23 +119,23 @@ def failure(t, reduced=False):
     frame = []
     if reduced:
         t = 2.6
-    camera = 33 * ease(t / .65)
+    camera = 29 * ease(t / .65)
     stairs(frame, camera=camera, future=1 - ease(t / .30))
     ground_alpha = ease((t - .40) / .40)
     rect(frame, 12, 97.5, 128, 3, 0, .28 * ground_alpha)
     if t < .65:
         walk_to_edge = ease(t / .65)
-        sprite(frame, x=32 * walk_to_edge - camera, y=-20 - math.sin(walk_to_edge * math.pi * 2) * 3, gait=walk_to_edge * math.tau)
+        sprite(frame, x=28 * walk_to_edge - camera, y=-20 - math.sin(walk_to_edge * math.pi * 2) * 3)
     elif t < .95:
         u = (t - .65) / .30
         sprite(frame, x=-1 + 9 * u, y=-20, angle=12 * math.sin(u * math.pi), pose='scared')
     elif t < 1.48:
         u = (t - .95) / .53
-        sprite(frame, x=8 + 10 * u, y=-20 + 106 * u * u, angle=180 * ease(u), pose='scared' if u < .6 else 'hurt')
+        sprite(frame, x=8 + 10 * u, y=-20 + 96 * u * u, angle=180 * ease(u), pose='scared' if u < .6 else 'hurt')
     else:
         impact = max(0, 1 - (t - 1.48) / .30)
-        sy = .62 - .18 * math.sin(impact * math.pi)
-        sprite(frame, x=18, y=96 - 16 * sy, sx=1.15 + .12 * math.sin(impact * math.pi), sy=sy, angle=180, pose='hurt')
+        sy = 1 - .18 * math.sin(impact * math.pi)
+        sprite(frame, x=18, y=96 - 20 * sy, sx=2 - sy, sy=sy, angle=180, pose='hurt')
         for sign in [-1, 1]:
             rect(frame, 18 + sign * (30 + (1 - impact) * 16), 89 - (1 - impact) * 8, 5, 3, 4, impact)
         # Smoke and little error crosses drift above the fallen character.
@@ -150,7 +155,10 @@ def build():
              for name, fn, duration in [('walk', walk, .6), ('success', success, 1.3), ('failure', failure, 3.0)]}
     # Do not repeat the walking endpoint: it is the next cycle's first frame.
     clips['walk'].pop()
-    clips['reducedWalk'] = [walk(0)]
+    still = []
+    stairs(still)
+    sprite(still)
+    clips['reducedWalk'] = [still]
     clips['reducedSuccess'] = [success(0, True)]
     clips['reducedFailure'] = [failure(0, True)]
     return {'fps': FPS, 'colors': COLORS, 'clips': clips}
