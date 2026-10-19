@@ -1,5 +1,6 @@
 import UIKit
 import WebKit
+import AVFAudio
 
 /// A persistent browser container for the existing site. No API keys, account
 /// credentials, APNs entitlement, or privileged JavaScript bridge are embedded.
@@ -530,6 +531,37 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             decisionHandler(.cancel)
             if ["http", "https", "mailto", "tel"].contains(scheme) {
                 UIApplication.shared.open(url)
+            }
+        }
+    }
+
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        // Only the app's own top-level page may reuse the OS microphone grant.
+        // Camera requests retain WebKit's normal prompt.
+        let defaultPort = homeURL.scheme == "https" ? 443 : 80
+        let requestPort = origin.port == 0 ? defaultPort : origin.port
+        let framePort = frame.securityOrigin.port == 0 ? defaultPort : frame.securityOrigin.port
+        guard frame.isMainFrame,
+              origin.protocol == homeURL.scheme, origin.host == homeURL.host,
+              requestPort == (homeURL.port ?? defaultPort),
+              frame.securityOrigin.protocol == origin.protocol,
+              frame.securityOrigin.host == origin.host,
+              framePort == requestPort else {
+            decisionHandler(.deny)
+            return
+        }
+        guard type == .microphone else { decisionHandler(.prompt); return }
+        // These APIs return the saved choice without prompting again. Only the
+        // first request shows iOS's system microphone permission dialog.
+        if #available(iOS 17.0, *) {
+            AVAudioApplication.requestRecordPermission { granted in
+                DispatchQueue.main.async { decisionHandler(granted ? .grant : .deny) }
+            }
+        } else {
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                DispatchQueue.main.async { decisionHandler(granted ? .grant : .deny) }
             }
         }
     }
