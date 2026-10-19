@@ -81,19 +81,13 @@ def cross(frame, x, y, alpha):
 def walk(t):
     frame = []
     phase = t / .6
-    # Keep the camera still while feet touch a step; move to the next step
-    # during flight. Each 18-frame hop has crouch, takeoff, air and impact.
-    flight = max(0, min(1, (phase - 1 / 6) / (2 / 3)))
-    stairs(frame, ease(flight))
-    poses = [(0, 1), (1 / 9, .80), (2 / 9, 1.12),
-             (4 / 9, 1), (7 / 9, 1.04), (8 / 9, .72), (1, 1)]
-    squash = 1
-    for (start, a), (end, b) in zip(poses, poses[1:]):
-        if start <= phase <= end:
-            squash = a + (b - a) * ease((phase - start) / (end - start))
-            break
-    hop = math.sin(flight * math.pi) * 25
-    # Scale around the feet, so the landing compresses against the stair.
+    # One continuous hop per step: no grounded hold or separate crouch.
+    stairs(frame, phase)
+    hop = math.sin(phase * math.pi) * 25
+    # A small contact pulse wraps across the loop boundary, so landing flows
+    # straight into takeoff. The silhouette returns to normal in the air.
+    contact = min(phase, 1 - phase)
+    squash = 1 - .08 * max(0, 1 - contact / .14) ** 2
     sprite(frame, y=-20 * squash - hop, sx=1 / math.sqrt(squash), sy=squash)
     return frame
 
