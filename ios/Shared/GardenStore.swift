@@ -1,9 +1,16 @@
 import Foundation
 import Security
 
+struct GardenExcerpt: Codable {
+    let text: String
+    let comment: String?
+    let source: String?
+}
+
 struct GardenSentence: Codable {
     let date: Date
     let text: String
+    let excerpt: GardenExcerpt?
 }
 
 struct GardenSnapshot: Codable {
