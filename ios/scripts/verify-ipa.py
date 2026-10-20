@@ -25,6 +25,9 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     widget = plistlib.loads(archive.read(widget_root + 'Info.plist'))
     assert widget['CFBundleIdentifier'] == 'com.linche.privateapp.GardenWidget', 'Unexpected widget identifier'
     assert widget['NSExtension']['NSExtensionPointIdentifier'] == 'com.apple.widgetkit-extension', 'Not a WidgetKit extension'
+    for bundle in (info, widget):
+        assert bundle.get('CFBundleDevelopmentRegion') == 'zh-Hans', 'Bundle default language must be Simplified Chinese'
+        assert 'zh-Hans' in bundle.get('CFBundleLocalizations', []), 'Missing Chinese localization declaration'
     assert widget['CFBundleVersion'] == info['CFBundleVersion'], 'Widget build mismatch'
     assert widget['CFBundleShortVersionString'] == info['CFBundleShortVersionString'], 'Widget version mismatch'
     widget_executable = archive.read(widget_root + widget['CFBundleExecutable'])

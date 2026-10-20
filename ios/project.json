@@ -4,12 +4,13 @@
     "bundleIdPrefix": "com.linche",
     "deploymentTarget": {
       "iOS": "16.0"
-    }
+    },
+    "developmentLanguage": "zh-Hans"
   },
   "settings": {
     "base": {
       "SWIFT_VERSION": "5.0",
-      "MARKETING_VERSION": "1.4.8",
+      "MARKETING_VERSION": "1.4.9",
       "CURRENT_PROJECT_VERSION": "1",
       "CODE_SIGNING_ALLOWED": "NO",
       "TARGETED_DEVICE_FAMILY": "1,2"
@@ -81,6 +82,10 @@
               ],
               "CFBundleTypeRole": "Viewer"
             }
+          ],
+          "CFBundleDevelopmentRegion": "zh-Hans",
+          "CFBundleLocalizations": [
+            "zh-Hans"
           ]
         }
       },
@@ -119,7 +124,11 @@
           "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
           "NSExtension": {
             "NSExtensionPointIdentifier": "com.apple.widgetkit-extension"
-          }
+          },
+          "CFBundleDevelopmentRegion": "zh-Hans",
+          "CFBundleLocalizations": [
+            "zh-Hans"
+          ]
         }
       }
     }

@@ -6,6 +6,10 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 spec = json.loads((root / 'project.json').read_text())
 targets = spec['targets']
+for name in ('LinChe', 'GardenWidget'):
+    properties = targets[name]['info']['properties']
+    assert properties.get('CFBundleDevelopmentRegion') == 'zh-Hans', f'{name}: default language must be Simplified Chinese'
+    assert 'zh-Hans' in properties.get('CFBundleLocalizations', []), f'{name}: missing Chinese localization declaration'
 for name, target in targets.items():
     for source in target.get('sources', []):
         path = source if isinstance(source, str) else source['path']
